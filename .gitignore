@@ -16,6 +16,8 @@ _ext
 AdelaiDet.egg-info/
 build/
 dist/
+experiments/
+datasets/
 
 # pytorch/python/numpy formats
 *.pth
