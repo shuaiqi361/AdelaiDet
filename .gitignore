@@ -18,6 +18,7 @@ build/
 dist/
 experiments/
 datasets/
+configs/
 
 # pytorch/python/numpy formats
 *.pth
