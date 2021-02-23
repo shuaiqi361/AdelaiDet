@@ -6,6 +6,7 @@ from .one_stage_detector import OneStageDetector, OneStageRCNN
 from .roi_heads.text_head import TextHead
 from .batext import BAText
 from .MEInst import MEInst
+from .SMInst import SMInst
 from .condinst import condinst
 
 _EXCLUDE = {"torch", "ShapeSpec"}

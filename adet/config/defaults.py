@@ -243,3 +243,92 @@ _C.MODEL.BiFPN.NUM_REPEATS = 6
 
 # Options: "" (no norm), "GN"
 _C.MODEL.BiFPN.NORM = ""
+
+
+# ---------------------------------------------------------------------------- #
+# SMInst Head Configuration
+# ---------------------------------------------------------------------------- #
+_C.MODEL.SMInst = CN()
+
+# This is the number of foreground classes.
+_C.MODEL.SMInst.NUM_CLASSES = 80
+_C.MODEL.SMInst.IN_FEATURES = ["p3", "p4", "p5", "p6", "p7"]
+_C.MODEL.SMInst.FPN_STRIDES = [8, 16, 32, 64, 128]
+_C.MODEL.SMInst.PRIOR_PROB = 0.01
+_C.MODEL.SMInst.INFERENCE_TH_TRAIN = 0.05
+_C.MODEL.SMInst.INFERENCE_TH_TEST = 0.05
+_C.MODEL.SMInst.NMS_TH = 0.6
+_C.MODEL.SMInst.PRE_NMS_TOPK_TRAIN = 1000
+_C.MODEL.SMInst.PRE_NMS_TOPK_TEST = 1000
+_C.MODEL.SMInst.POST_NMS_TOPK_TRAIN = 100
+_C.MODEL.SMInst.POST_NMS_TOPK_TEST = 100
+_C.MODEL.SMInst.TOP_LEVELS = 2
+_C.MODEL.SMInst.NORM = "GN"  # Support GN or none
+_C.MODEL.SMInst.USE_SCALE = True
+
+# Multiply centerness before threshold
+# This will affect the final performance by about 0.05 AP but save some time
+_C.MODEL.SMInst.THRESH_WITH_CTR = False
+
+# Focal loss parameters
+_C.MODEL.SMInst.LOSS_ALPHA = 0.25
+_C.MODEL.SMInst.LOSS_GAMMA = 2.0
+_C.MODEL.SMInst.SIZES_OF_INTEREST = [64, 128, 256, 512]
+_C.MODEL.SMInst.USE_RELU = True
+_C.MODEL.SMInst.USE_DEFORMABLE = False
+_C.MODEL.SMInst.LAST_DEFORMABLE = False
+_C.MODEL.SMInst.TYPE_DEFORMABLE = "DCNv1"  # or DCNv2.
+
+# the number of convolutions used in the cls and bbox tower
+_C.MODEL.SMInst.NUM_CLS_CONVS = 4
+_C.MODEL.SMInst.NUM_BOX_CONVS = 4
+_C.MODEL.SMInst.NUM_SHARE_CONVS = 0
+_C.MODEL.SMInst.CENTER_SAMPLE = True
+_C.MODEL.SMInst.POS_RADIUS = 1.5
+_C.MODEL.SMInst.LOC_LOSS_TYPE = 'giou'
+
+# ---------------------------------------------------------------------------- #
+# Sparse Shape Encoding for Instance Segmentation
+# ---------------------------------------------------------------------------- #
+# Whether to use mask branch.
+_C.MODEL.SMInst.MASK_ON = True
+# IOU overlap ratios [IOU_THRESHOLD]
+# Overlap threshold for an RoI to be considered background (if < IOU_THRESHOLD)
+# Overlap threshold for an RoI to be considered foreground (if >= IOU_THRESHOLD)
+_C.MODEL.SMInst.IOU_THRESHOLDS = [0.5]
+_C.MODEL.SMInst.IOU_LABELS = [0, 1]
+# Whether to use class_agnostic or class_specific.
+_C.MODEL.SMInst.AGNOSTIC = True
+# Some operations in mask encoding.
+_C.MODEL.SMInst.WHITEN = True
+_C.MODEL.SMInst.SIGMOID = True
+
+# The number of convolutions used in the mask tower.
+_C.MODEL.SMInst.NUM_MASK_CONVS = 4
+
+# The dim of mask before/after mask encoding.
+_C.MODEL.SMInst.DIM_MASK = 60
+_C.MODEL.SMInst.MASK_SIZE = 28
+_C.MODEL.SMInst.MASK_SPARSE_ALPHA = 0.01
+
+# The dim for sparse shape encoding
+_C.MODEL.SMInst.NUM_VERTEX = 180
+_C.MODEL.SMInst.NUM_CODE = 64
+_C.MODEL.SMInst.POLYGON_SPARSE_ALPHA = 0.01
+_C.MODEL.SMInst.MAX_ISTA_ITER = 100
+# The default path for parameters of mask encoding.
+_C.MODEL.SMInst.PATH_DICTIONARY = "datasets/coco/components/" \
+                                   "coco_2017_train_class_agnosticTrue_whitenTrue_sigmoidTrue_60.npz"
+# An indicator for encoding parameters loading during training.
+_C.MODEL.SMInst.FLAG_PARAMETERS = False
+# The loss for mask branch, can be mse now.
+_C.MODEL.SMInst.MASK_LOSS_TYPE = "mse"
+_C.MODEL.SMInst.SHAPE_LOSS_TYPE = "piou"
+
+# Whether to use gcn in mask prediction.
+# Large Kernel Matters -- https://arxiv.org/abs/1703.02719
+_C.MODEL.SMInst.USE_GCN_IN_MASK = False
+_C.MODEL.SMInst.GCN_KERNEL_SIZE = 9
+# Whether to compute loss on original mask (binary mask).
+_C.MODEL.SMInst.LOSS_ON_MASK = False
+_C.MODEL.SMInst.LOSS_ON_SHAPE = False

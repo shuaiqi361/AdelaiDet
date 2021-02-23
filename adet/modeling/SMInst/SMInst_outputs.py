@@ -15,7 +15,6 @@ from fvcore.nn import sigmoid_focal_loss_jit
 from adet.utils.comm import reduce_sum
 from adet.layers import ml_nms
 
-
 logger = logging.getLogger(__name__)
 
 INF = 100000000
@@ -34,13 +33,13 @@ Naming convention:
     reg_targets: refers to the 4-d (left, top, right, bottom) distances that parameterize the ground-truth box.
 
     logits_pred: predicted classification scores in [-inf, +inf];
-    
+
     reg_pred: the predicted (left, top, right, bottom), corresponding to reg_targets 
 
     ctrness_pred: predicted centerness scores
-    
+
     mask_regression: the predicted mask coefficients (D)
-    
+
 """
 
 
@@ -50,11 +49,11 @@ def compute_ctrness_targets(reg_targets):
     left_right = reg_targets[:, [0, 2]]
     top_bottom = reg_targets[:, [1, 3]]
     ctrness = (left_right.min(dim=-1)[0] / left_right.max(dim=-1)[0]) * \
-                 (top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0])
+              (top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0])
     return torch.sqrt(ctrness)
 
 
-class MEInstOutputs(object):
+class SMInstOutputs(object):
     def __init__(
             self,
             images,
@@ -108,7 +107,7 @@ class MEInstOutputs(object):
 
         self.loss_on_mask = cfg.MODEL.MEInst.LOSS_ON_MASK
         self.mask_loss_type = cfg.MODEL.MEInst.MASK_LOSS_TYPE
-        self.dim_mask = cfg.MODEL.MEInst.DIM_MASK
+        self.num_codes = cfg.MODEL.MEInst.NUM_CODE
         self.mask_size = cfg.MODEL.MEInst.MASK_SIZE
         if self.loss_on_mask:
             self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
@@ -220,8 +219,8 @@ class MEInstOutputs(object):
                 level_lt = mask_index_per_img.lt(level_e)
                 index_level = torch.nonzero(level_ge * level_lt).squeeze(1)
                 mask_target_per_level = mask_target_per_img[index_level].gt_masks.crop_and_resize(
-                                        mask_target_per_img[index_level].pos_boxes.tensor,
-                                        self.mask_size).float()
+                    mask_target_per_img[index_level].pos_boxes.tensor,
+                    self.mask_size).float()
                 mask_level.append(mask_target_per_level)
                 level_s = level_e
             mask_targets_split.append(mask_level)
@@ -365,7 +364,7 @@ class MEInstOutputs(object):
         return {"labels": labels, "reg_targets": reg_targets,
                 "mask_targets": mask_targets, "mask_indices": mask_indices}
 
-    def MEInst_losses(
+    def SMInst_losses(
             self,
             labels,
             reg_targets,
@@ -444,10 +443,10 @@ class MEInstOutputs(object):
                 raise NotImplementedError
 
         losses = {
-            "loss_MEInst_cls": class_loss,
-            "loss_MEInst_loc": reg_loss,
-            "loss_MEInst_ctr": ctrness_loss,
-            "loss_MEInst_mask": mask_loss,
+            "loss_SMInst_cls": class_loss,
+            "loss_SMInst_loc": reg_loss,
+            "loss_SMInst_ctr": ctrness_loss,
+            "loss_SMInst_mask": mask_loss,
         }
         return losses, {}
 
@@ -471,45 +470,45 @@ class MEInstOutputs(object):
                 # Reshape: (N, C, Hi, Wi) -> (N, Hi, Wi, C) -> (N*Hi*Wi, C)
                 x.permute(0, 2, 3, 1).reshape(-1, self.num_classes)
                 for x in self.logits_pred
-            ], dim=0,)
+            ], dim=0, )
         reg_pred = cat(
             [
                 # Reshape: (N, B, Hi, Wi) -> (N, Hi, Wi, B) -> (N*Hi*Wi, B)
                 x.permute(0, 2, 3, 1).reshape(-1, 4)
                 for x in self.reg_pred
-            ], dim=0,)
+            ], dim=0, )
         ctrness_pred = cat(
             [
                 # Reshape: (N, 1, Hi, Wi) -> (N*Hi*Wi,)
                 x.reshape(-1) for x in self.ctrness_pred
-            ], dim=0,)
+            ], dim=0, )
 
         labels = cat(
             [
                 # Reshape: (N, 1, Hi, Wi) -> (N*Hi*Wi,)
                 x.reshape(-1) for x in labels
-            ], dim=0,)
+            ], dim=0, )
 
         reg_targets = cat(
             [
                 # Reshape: (N, Hi, Wi, 4) -> (N*Hi*Wi, 4)
                 x.reshape(-1, 4) for x in reg_targets
-            ], dim=0,)
+            ], dim=0, )
 
         mask_pred = cat(
             [
                 # Reshape: (N, D, Hi, Wi) -> (N, Hi, Wi, D) -> (N*Hi*Wi, D)
                 x.permute(0, 2, 3, 1).reshape(-1, self.dim_mask)
                 for x in self.mask_regression
-            ], dim=0,)
+            ], dim=0, )
 
         mask_targets = cat(
             [
                 # Reshape: (N, Hi, Wi, mask_size^2) -> (N*Hi*Wi, mask_size^2)
                 x.reshape(-1, self.mask_size ** 2) for x in mask_targets
-            ], dim=0,)
+            ], dim=0, )
 
-        return self.MEInst_losses(
+        return self.SMInst_losses(
             labels,
             reg_targets,
             logits_pred,
