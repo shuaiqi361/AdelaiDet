@@ -23,7 +23,7 @@ configs/
 # pytorch/python/numpy formats
 *.pth
 *.pkl
-*.npy
+#*.npy
 
 # ipython/jupyter notebooks
 *.ipynb
