@@ -175,7 +175,7 @@ class SparseMaskEncoding(nn.Module):
         -------
         X_original original features(tensor), shape (n_samples, n_features)
         """
-        assert X.shape[1] == self.dim_mask, print("The dim of transformed data "
+        assert X.shape[1] == self.num_codes, print("The dim of transformed data "
                                                   "should be equal to the supposed dim.")
 
         X_transformed = torch.matmul(X, self.dictionary)
