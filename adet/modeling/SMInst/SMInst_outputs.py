@@ -34,7 +34,7 @@ Naming convention:
 
     logits_pred: predicted classification scores in [-inf, +inf];
 
-    reg_pred: the predicted (left, top, right, bottom), corresponding to reg_targets 
+    reg_pred: the predicted (left, top, right, bottom), corresponding to reg_targets
 
     ctrness_pred: predicted centerness scores
 
@@ -105,10 +105,10 @@ class SMInstOutputs(object):
         self.fpn_post_nms_top_n = fpn_post_nms_top_n
         self.thresh_with_ctr = thresh_with_ctr
 
-        self.loss_on_mask = cfg.MODEL.MEInst.LOSS_ON_MASK
-        self.mask_loss_type = cfg.MODEL.MEInst.MASK_LOSS_TYPE
-        self.num_codes = cfg.MODEL.MEInst.NUM_CODE
-        self.mask_size = cfg.MODEL.MEInst.MASK_SIZE
+        self.loss_on_mask = cfg.MODEL.SMInst.LOSS_ON_MASK
+        self.mask_loss_type = cfg.MODEL.SMInst.MASK_LOSS_TYPE
+        self.num_codes = cfg.MODEL.SMInst.NUM_CODE
+        self.mask_size = cfg.MODEL.SMInst.MASK_SIZE
         if self.loss_on_mask:
             self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
         elif self.mask_loss_type == 'mse':
@@ -118,8 +118,8 @@ class SMInstOutputs(object):
 
         # Matcher to assign box proposals to gt boxes
         self.proposal_matcher = Matcher(
-            cfg.MODEL.MEInst.IOU_THRESHOLDS,
-            cfg.MODEL.MEInst.IOU_LABELS,
+            cfg.MODEL.SMInst.IOU_THRESHOLDS,
+            cfg.MODEL.SMInst.IOU_LABELS,
             allow_low_quality_matches=False,
         )
 
@@ -438,7 +438,7 @@ class SMInstOutputs(object):
                     mask_targets
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
-                mask_loss = mask_loss.sum() / max(ctrness_norm * self.dim_mask, 1.0)
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
             else:
                 raise NotImplementedError
 
@@ -452,7 +452,7 @@ class SMInstOutputs(object):
 
     def losses(self):
         """
-        Return the losses from a set of MEInst predictions and their associated ground-truth.
+        Return the losses from a set of SMInst predictions and their associated ground-truth.
 
         Returns:
             dict[loss name -> loss value]: A dict mapping from loss name to loss value.
@@ -498,7 +498,7 @@ class SMInstOutputs(object):
         mask_pred = cat(
             [
                 # Reshape: (N, D, Hi, Wi) -> (N, Hi, Wi, D) -> (N*Hi*Wi, D)
-                x.permute(0, 2, 3, 1).reshape(-1, self.dim_mask)
+                x.permute(0, 2, 3, 1).reshape(-1, self.num_codes)
                 for x in self.mask_regression
             ], dim=0, )
 
@@ -563,8 +563,8 @@ class SMInstOutputs(object):
         box_regression = box_regression.reshape(N, -1, 4)
         ctrness = ctrness.view(N, 1, H, W).permute(0, 2, 3, 1)
         ctrness = ctrness.reshape(N, -1).sigmoid()
-        mask_regression = mask_regression.view(N, self.dim_mask, H, W).permute(0, 2, 3, 1)
-        mask_regression = mask_regression.reshape(N, -1, self.dim_mask)
+        mask_regression = mask_regression.view(N, self.num_codes, H, W).permute(0, 2, 3, 1)
+        mask_regression = mask_regression.reshape(N, -1, self.num_codes)
 
         # if self.thresh_with_ctr is True, we multiply the classification
         # scores with centerness scores before applying the threshold.

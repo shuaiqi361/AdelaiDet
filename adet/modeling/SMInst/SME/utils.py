@@ -122,7 +122,7 @@ class IOUMetric(object):
 
 
 def soft_thresholding(x, lm):
-    ze_ = torch.zeros(size=x.size())
+    ze_ = torch.zeros(size=x.size(), device=x.device)
     return torch.sign(x) * torch.maximum(torch.abs(x) - lm, ze_)
 
 
@@ -139,9 +139,9 @@ def fast_ista(b, A, lmbda, max_iter):
     """
     n_coeffs, n_feats = A.size()
     n_samples = b.size()[0]
-    x = torch.zeros(size=(n_samples, n_coeffs))
+    x = torch.zeros(size=(n_samples, n_coeffs), device=b.device)
     t = 1.
-    z = torch.zeros(size=(n_samples, n_coeffs))
+    z = torch.zeros(size=(n_samples, n_coeffs), device=b.device)
     L = torch.linalg.norm(A, ord=2) ** 2  # Lipschitz constant, 2-norm (largest sing. value)
 
     for k in range(max_iter):
@@ -153,4 +153,3 @@ def fast_ista(b, A, lmbda, max_iter):
         z = x + ((t0 - 1.) / t) * (x - x_old)
 
     return x
-
