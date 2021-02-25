@@ -404,6 +404,7 @@ _C.MODEL.DTInst.NUM_VERTEX = 180
 _C.MODEL.DTInst.NUM_CODE = 64
 _C.MODEL.DTInst.POLYGON_SPARSE_ALPHA = 0.01
 _C.MODEL.DTInst.MAX_ISTA_ITER = 100
+_C.MODEL.DTInst.DIST_TYPE = "L2"
 # The default path for parameters of mask encoding.
 _C.MODEL.DTInst.PATH_DICTIONARY = "datasets/coco/components/" \
                                    "coco_2017_train_class_agnosticTrue_whitenTrue_sigmoidTrue_60.npz"
