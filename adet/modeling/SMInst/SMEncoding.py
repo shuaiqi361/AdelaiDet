@@ -183,6 +183,7 @@ class SparseMaskEncoding(nn.Module):
         if is_train:
             pass
         else:
-            X_transformed = torch.where(X_transformed >= 0.5, 1, 0)
+            # X_transformed = torch.where(X_transformed >= 0.5, 1, 0)
+            X_transformed = torch.clamp(X_transformed, min=0.001, max=0.999)
 
         return X_transformed
