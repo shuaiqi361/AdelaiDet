@@ -31,6 +31,7 @@ def setup_cfg(args):
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = args.confidence_threshold
     cfg.MODEL.FCOS.INFERENCE_TH_TEST = args.confidence_threshold
     cfg.MODEL.MEInst.INFERENCE_TH_TEST = args.confidence_threshold
+    cfg.MODEL.SMInst.INFERENCE_TH_TEST = args.confidence_threshold
     cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = args.confidence_threshold
     cfg.freeze()
     return cfg

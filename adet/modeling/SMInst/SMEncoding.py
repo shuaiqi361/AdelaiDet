@@ -157,7 +157,7 @@ class SparseMaskEncoding(nn.Module):
         assert X.shape[1] == self.mask_size ** 2, print("The original mask_size of input"
                                                       " should be equal to the supposed size.")
 
-        X_transformed = fast_ista(X, self.dictionary, lmbda=self.sparse_alpha, max_iter=self.max_iter)
+        X_transformed = fast_ista(X * 1., self.dictionary, lmbda=self.sparse_alpha, max_iter=self.max_iter)
 
         return X_transformed
 
