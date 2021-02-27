@@ -27,11 +27,11 @@ def parse_args():
                         type=str)
     parser.add_argument('--dataset', default='coco_2017_val', type=str)
     parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/'
-                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n256_a0.01.npy',
+                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n64_a0.01.npy',
                         type=str)
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
-    parser.add_argument('--n_codes', default=256, type=int)
+    parser.add_argument('--n_codes', default=64, type=int)
     parser.add_argument('--mask_sparse_alpha', default=0.01, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     args = parser.parse_args()
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         masks = masks.to(torch.float32)
 
         # --> encode --> decode.
-        mask_codes = fast_ista(masks, learned_dict, lmbda=sparse_alpha, max_iter=80)
+        mask_codes = fast_ista(masks, learned_dict, lmbda=sparse_alpha, max_iter=100)
         mask_rc = torch.matmul(mask_codes, learned_dict).numpy()
         # eva.
         mask_rc = np.where(mask_rc >= 0.5, 1, 0)
