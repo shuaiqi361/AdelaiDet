@@ -58,8 +58,9 @@ if __name__ == "__main__":
 
     # build data loader.
     mask_data = MaskLoader(root=dataset_root, dataset=args.dataset, size=mask_size)
-    mask_loader = DataLoader(mask_data, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    mask_loader = DataLoader(mask_data, batch_size=args.batch_size, shuffle=False, num_workers=4, drop_last=False)
     size_data = len(mask_loader)
+    sparsity_counts = []
 
     # evaluation.
     IoUevaluate = IOUMetric(2)
@@ -75,10 +76,15 @@ if __name__ == "__main__":
         # --> encode --> decode.
         dtms_codes = fast_ista(dtms, learned_dict, lmbda=sparse_alpha, max_iter=100)
         dtms_rc = torch.matmul(dtms_codes, learned_dict).numpy()
+
+        # evaluate sparsity
+        sparsity_counts.append(np.sum(np.abs(dtms_codes.numpy()) > 1e-4))
+
         # eva.
-        dtms_rc = np.where(dtms_rc + 1 >= 0.5, 1, 0)
+        dtms_rc = np.where(dtms_rc + 1 - 0.1 > 0.5, 1, 0)  # adjust the thresholding to binary masks
         # dtms_rc = np.where(dtms_rc - 0.1 > 0.5, 1, 0)
         IoUevaluate.add_batch(dtms_rc, masks.numpy())
 
     _, _, _, mean_iu, _ = IoUevaluate.evaluate()
     print("The mIoU for {}: {}".format(dictionary_path.split('/')[-1], mean_iu))
+    print('Overall code activation rate: ', np.sum(sparsity_counts) * 1. / size_data / n_codes / args.batch_size)

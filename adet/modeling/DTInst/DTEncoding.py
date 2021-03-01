@@ -44,8 +44,8 @@ class DistanceTransformEncoding(nn.Module):
         assert X.shape[1] == self.mask_size ** 2, print("The original mask_size of input"
                                                       " should be equal to the supposed size.")
         
-        # X_t = prepare_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
-        X_t = prepare_overlay_DTMs_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        X_t = prepare_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        # X_t = prepare_overlay_DTMs_from_mask(X, self.mask_size, dist_type=self.dist_type)
 
         X_transformed = fast_ista(X_t, self.dictionary, lmbda=self.sparse_alpha, max_iter=self.max_iter)
 
@@ -74,7 +74,7 @@ class DistanceTransformEncoding(nn.Module):
             pass
             # X_transformed = torch.clamp(X_transformed, min=0.001, max=0.999)
         else:
-            # X_transformed = torch.clamp(X_transformed + 1, min=0.001, max=0.999)
-            X_transformed = torch.clamp(X_transformed - 0.1, min=0.01, max=0.99)
+            X_transformed = torch.clamp(X_transformed + 0.9, min=0.01, max=0.99)
+            # X_transformed = torch.clamp(X_transformed - 0.1, min=0.01, max=0.99)
 
         return X_transformed
