@@ -2,7 +2,8 @@
 import torch
 import torch.nn as nn
 import cv2
-from .DTE import fast_ista, prepare_distance_transform_from_mask, prepare_overlay_DTMs_from_mask
+from .DTE import fast_ista, prepare_distance_transform_from_mask, \
+    prepare_overlay_DTMs_from_mask, prepare_extended_DTMs_from_mask
 
 
 @torch.no_grad()

@@ -12,12 +12,9 @@ from utils import (
     IOUMetric,
     fast_ista,
     prepare_distance_transform_from_mask,
-    prepare_overlay_DTMs_from_mask
+    prepare_overlay_DTMs_from_mask,
+    prepare_extended_DTMs_from_mask
 )
-
-
-VALUE_MAX = 0.05
-VALUE_MIN = 0.01
 
 
 def parse_args():
@@ -26,13 +23,13 @@ def parse_args():
                         type=str)
     parser.add_argument('--dataset', default='coco_2017_val', type=str)
     parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling/'
-                                                'DTInst/dictionary/mask_fromDTM_minusone_basis_m28_n64_a0.01.npy',
+                                                'DTInst/dictionary/mask_fromDTM_minusone_basis_m48_n64_a0.01.npy',
                         type=str)
     # parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling/'
     #                                             'DTInst/dictionary/Basis_L2_DTMs_overlay_m28_n256_a0.10.npy',
     #                     type=str)
     # mask encoding params.
-    parser.add_argument('--mask_size', default=28, type=int)
+    parser.add_argument('--mask_size', default=48, type=int)
     parser.add_argument('--n_codes', default=64, type=int)
     parser.add_argument('--n_vertices', default=360, type=int)
     parser.add_argument('--sparse_alpha', default=0.01, type=float)
@@ -72,6 +69,7 @@ if __name__ == "__main__":
         masks = masks.to(torch.float32)
         dtms = prepare_distance_transform_from_mask(masks, mask_size)  # for learn DTMs minusone
         # dtms = prepare_overlay_DTMs_from_mask(masks, mask_size)  # for learn DTMs overlay
+        # dtms = prepare_extended_DTMs_from_mask(masks, mask_size)  # for learn DTMs extended, 0, 1 range
 
         # --> encode --> decode.
         dtms_codes = fast_ista(dtms, learned_dict, lmbda=sparse_alpha, max_iter=100)
@@ -83,6 +81,7 @@ if __name__ == "__main__":
         # eva.
         dtms_rc = np.where(dtms_rc + 1 - 0.1 > 0.5, 1, 0)  # adjust the thresholding to binary masks
         # dtms_rc = np.where(dtms_rc - 0.1 > 0.5, 1, 0)
+        # dtms_rc = np.where(dtms_rc > 0.4, 1, 0)
         IoUevaluate.add_batch(dtms_rc, masks.numpy())
 
     _, _, _, mean_iu, _ = IoUevaluate.evaluate()
