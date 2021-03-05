@@ -22,17 +22,17 @@ def parse_args():
     parser.add_argument('--data_root', default='/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17',
                         type=str)
     parser.add_argument('--dataset', default='coco_2017_val', type=str)
-    parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling/'
-                                                'DTInst/dictionary/mask_fromDTM_minusone_basis_m48_n64_a0.01.npy',
+    parser.add_argument('--dictionary', default='/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17/'
+                                                'sparse_shape_dict/mask_fromDTM_minusone_basis_m28_n256_a0.50.npy',
                         type=str)
     # parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling/'
     #                                             'DTInst/dictionary/Basis_L2_DTMs_overlay_m28_n256_a0.10.npy',
     #                     type=str)
     # mask encoding params.
-    parser.add_argument('--mask_size', default=48, type=int)
-    parser.add_argument('--n_codes', default=64, type=int)
+    parser.add_argument('--mask_size', default=28, type=int)
+    parser.add_argument('--n_codes', default=256, type=int)
     parser.add_argument('--n_vertices', default=360, type=int)
-    parser.add_argument('--sparse_alpha', default=0.01, type=float)
+    parser.add_argument('--sparse_alpha', default=0.5, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     args = parser.parse_args()
     return args

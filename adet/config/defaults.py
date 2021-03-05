@@ -357,7 +357,7 @@ _C.MODEL.DTInst.USE_SCALE = True
 
 # Multiply centerness before threshold
 # This will affect the final performance by about 0.05 AP but save some time
-_C.MODEL.DTInst.THRESH_WITH_CTR = False
+_C.MODEL.DTInst.THRESH_WITH_CTR = True
 
 # Focal loss parameters
 _C.MODEL.DTInst.LOSS_ALPHA = 0.25
