@@ -113,6 +113,10 @@ class DTInstOutputs(object):
             self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
         elif self.mask_loss_type == 'mse':
             self.mask_loss_func = nn.MSELoss(reduction="none")
+        elif self.mask_loss_type == 'l1':
+            self.mask_loss_func = nn.L1Loss(reduction="none")
+        elif self.mask_loss_type == 'smoothl1':
+            self.mask_loss_func = nn.SmoothL1Loss(reduction="none")
         else:
             raise NotImplementedError
 
@@ -432,7 +436,7 @@ class DTInstOutputs(object):
         else:
             # m*m mask labels --> n_components encoding labels
             mask_targets = self.mask_encoding.encoder(mask_targets)
-            if self.mask_loss_type == 'mse':
+            if self.mask_loss_type == 'mse' or self.mask_loss_type == 'l1' or self.mask_loss_type == 'smoothl1':
                 mask_loss = self.mask_loss_func(
                     mask_pred,
                     mask_targets
@@ -446,7 +450,7 @@ class DTInstOutputs(object):
             "loss_DTInst_cls": class_loss,
             "loss_DTInst_loc": reg_loss,
             "loss_DTInst_ctr": ctrness_loss,
-            "loss_DTInst_mask": mask_loss * 0.25,
+            "loss_DTInst_mask": mask_loss,
         }
         return losses, {}
 
