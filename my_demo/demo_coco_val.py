@@ -84,8 +84,14 @@ if __name__ == "__main__":
     demo = VisualizationDemo(cfg)
 
     # Loading COCO validation images
-    args.data_type = 'val2017'
-    annotation_file = '{}/annotations/instances_{}.json'.format(args.coco_path, args.data_type)
+    args.data_type = 'test2017'
+    # annotation_file = '{}/annotations/instances_{}.json'.format(args.coco_path, args.data_type)
+    if 'test' not in args.data_type:
+        annotation_file = '{}/annotations/instances_{}.json'.format(args.coco_path, args.data_type)
+        dataset_name = 'coco_2017_val'
+    else:
+        annotation_file = '{}/annotations/image_info_test-dev2017.json'.format(args.coco_path)
+        dataset_name = 'coco_2017_train'
 
     coco = COCO(annotation_file)
     imgIds = coco.getImgIds()

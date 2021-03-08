@@ -398,6 +398,7 @@ _C.MODEL.DTInst.NUM_MASK_CONVS = 4
 # The dim of mask before/after mask encoding.
 _C.MODEL.DTInst.MASK_SIZE = 28
 _C.MODEL.DTInst.MASK_SPARSE_ALPHA = 0.01
+_C.MODEL.DTInst.MASK_SPARSE_WEIGHT = 0
 
 # The dim for sparse shape encoding
 _C.MODEL.DTInst.NUM_VERTEX = 180

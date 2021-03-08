@@ -109,6 +109,7 @@ class DTInstOutputs(object):
         self.mask_loss_type = cfg.MODEL.DTInst.MASK_LOSS_TYPE
         self.num_codes = cfg.MODEL.DTInst.NUM_CODE
         self.mask_size = cfg.MODEL.DTInst.MASK_SIZE
+        self.mask_sparse_weight = cfg.MODEL.DTInst.MASK_SPARSE_WEIGHT
         if self.loss_on_mask:
             self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
         elif self.mask_loss_type == 'mse':
@@ -443,6 +444,10 @@ class DTInstOutputs(object):
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                if self.mask_sparse_weight > 0:
+                    sparsity_loss = torch.abs(mask_pred).sum(1) * ctrness_targets
+                    sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                    mask_loss = mask_loss + sparsity_loss * self.mask_sparse_weight
             else:
                 raise NotImplementedError
 
