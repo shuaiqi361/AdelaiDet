@@ -149,8 +149,7 @@ def get_parser():
     )
     parser.add_argument("--webcam", action="store_true", help="Take inputs from webcam.")
     parser.add_argument("--img-dir",
-                        default='/media/keyi/Data/Research/traffic/data/AIC2021/Dataset/'
-                                'AIC21_Track1_Vehicle_Counting/AIC21_Track1_Vehicle_Counting/Dataset_A/cam_11_frames')
+                        default='/media/keyi/Data/Research/traffic/data/Hwy7/new/sc2')
     parser.add_argument("--input", nargs="+", help="A list of space separated input images")
     parser.add_argument("--coco-path", type=str,
                         default='/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17/coco',
@@ -163,13 +162,13 @@ def get_parser():
     parser.add_argument(
         "--result-dir",
         type=str,
-        default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/experiments/2080_res50_DTInst_002',
+        default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/experiments/3090_res101_DTInst_002',
         help="A file or directory to save output coco json. ",
     )
     parser.add_argument(
         "--output-video-file",
         type=str,
-        default='aic2021_fcos_cam_11_det_800.mkv',
+        default='Hwy7_sc2_segm_1080.mkv',
         help="A file or directory to save output coco json. ",
     )
 
@@ -192,7 +191,7 @@ def get_parser():
     parser.add_argument(
         "--fps",
         type=int,
-        default=10,
+        default=30,
     )
     parser.add_argument(
         "--opts",
@@ -250,10 +249,12 @@ if __name__ == "__main__":
     for frame_id in range(n_frames):
         frame_name = frame_list[frame_id]
         image_path = os.path.join(args.img_dir, frame_name)
-        output_image = cv2.imread(image_path)
+        # output_image = cv2.imread(image_path)
 
         # use PIL, to be consistent with evaluation
         img = read_image(image_path, format="BGR")
+        img = cv2.resize(img, (args.video_width, args.video_height), interpolation=cv2.INTER_LINEAR)
+        output_image = img.copy()
         start_time = time.time()
 
         predictions = predictor(img)
@@ -267,10 +268,14 @@ if __name__ == "__main__":
         num_instance = len(instances)
 
         boxes = instances.pred_boxes.tensor.numpy()
+        masks = instances.pred_masks.numpy()
         # boxes = BoxMode.convert(boxes, BoxMode.XYXY_ABS, BoxMode.XYWH_ABS)
         boxes = boxes.tolist()
+        # masks = masks.tolist()
         scores = instances.scores.tolist()
         classes = instances.pred_classes.tolist()
+
+        blend_mask = np.zeros(shape=output_image.shape, dtype=np.uint8)
 
         for i in range(num_instance):
             category_id = classes[i]
@@ -287,19 +292,37 @@ if __name__ == "__main__":
             bbox = boxes[i]
             text = label_text + ' %.2f' % scores[i]
             label_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_COMPLEX, 0.3, 1)
-            text_location = [int(bbox[0]) + 2, int(bbox[1]) + 2,
-                             int(bbox[0]) + 2 + label_size[0][0],
-                             int(bbox[1]) + 2 + label_size[0][1]]
-            cv2.rectangle(output_image, pt1=(int(bbox[0]), int(bbox[1])),
-                          pt2=(int(bbox[2]), int(bbox[3])),
-                          color=nice_colors[label_text], thickness=2)
-            cv2.putText(output_image, text, org=(int(text_location[0]), int(text_location[3])),
-                        fontFace=cv2.FONT_HERSHEY_COMPLEX, thickness=1, fontScale=0.3,
-                        color=nice_colors[label_text])
+            # text_location = [int(bbox[0]) + 2, int(bbox[1]) + 2,
+            #                  int(bbox[0]) + 2 + label_size[0][0],
+            #                  int(bbox[1]) + 2 + label_size[0][1]]
+            # cv2.rectangle(output_image, pt1=(int(bbox[0]), int(bbox[1])),
+            #               pt2=(int(bbox[2]), int(bbox[3])),
+            #               color=nice_colors[label_text], thickness=2)
+            # cv2.putText(output_image, text, org=(int(text_location[0]), int(text_location[3])),
+            #             fontFace=cv2.FONT_HERSHEY_COMPLEX, thickness=1, fontScale=0.3,
+            #             color=nice_colors[label_text])
+
+            # show the segmentation masks for vehicles
+            mask = masks[i]
+            obj_contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            if len(obj_contours) > 1:
+                obj_contours = sorted(obj_contours, key=cv2.contourArea)
+
+            for contour in obj_contours:
+                polygon = contour.reshape((-1, 2))
+                cv2.polylines(output_image, [polygon.astype(np.int32)], True, color=nice_colors[label_text],
+                              thickness=2)
+                cv2.drawContours(blend_mask, [polygon.astype(np.int32)], contourIdx=-1,
+                                 color=nice_colors[label_text],
+                                 thickness=-1)
+
+        dst_img = cv2.addWeighted(output_image, 0.4, blend_mask, 0.6, 0)
+        dst_img[blend_mask == 0] = output_image[blend_mask == 0]
+        output_image = dst_img
 
         cv2.imshow('Frames', output_image)
         video_out.write(output_image)
         if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            exit()
 
     exit()

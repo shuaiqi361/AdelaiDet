@@ -169,7 +169,7 @@ def get_parser():
     parser.add_argument(
         "--output-video-file",
         type=str,
-        default='aic2021_fcos_cam_11_det_800.mkv',
+        default='aic2021_fcos_cam_11_det_1080.mkv',
         help="A file or directory to save output coco json. ",
     )
 
