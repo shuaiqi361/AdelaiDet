@@ -176,7 +176,7 @@ def get_parser():
     parser.add_argument(
         "--confidence-threshold",
         type=float,
-        default=0.3,
+        default=0.4,
         help="Minimum score for instance predictions to be shown",
     )
     parser.add_argument(
@@ -204,6 +204,7 @@ def get_parser():
 
 
 if __name__ == "__main__":
+    program_start = time.time()
     mp.set_start_method("spawn", force=True)
     args = get_parser().parse_args()
     logger = setup_logger()
@@ -246,14 +247,17 @@ if __name__ == "__main__":
 
     frame_list = sorted(os.listdir(args.img_dir))
     n_frames = len(frame_list)
+    time_forward_list = []
 
     for frame_id in range(n_frames):
+        forward_start = time.time()
         frame_name = frame_list[frame_id]
         image_path = os.path.join(args.img_dir, frame_name)
-        output_image = cv2.imread(image_path)
+        # output_image = cv2.imread(image_path)
 
         # use PIL, to be consistent with evaluation
         img = read_image(image_path, format="BGR")
+        output_image = img.copy()
         start_time = time.time()
 
         predictions = predictor(img)
@@ -262,6 +266,9 @@ if __name__ == "__main__":
                 image_path, len(predictions["instances"]), time.time() - start_time
             )
         )
+
+        forward_end = time.time()
+        time_forward_list.append(forward_end - forward_start)
 
         instances = predictions["instances"].to(_cpu_device)
         num_instance = len(instances)
@@ -302,4 +309,9 @@ if __name__ == "__main__":
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
+    print('Total program execution time: ', time.time() - program_start)
+    t_for_time = np.sum(time_forward_list)
+    print('total forward time {:.4f}, average per frame time {:.4f}, average fps {:.4f}'.format(t_for_time,
+                                                                                                t_for_time / n_frames,
+                                                                                                n_frames / t_for_time))
     exit()
