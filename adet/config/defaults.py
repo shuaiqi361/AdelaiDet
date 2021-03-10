@@ -397,7 +397,7 @@ _C.MODEL.DTInst.NUM_MASK_CONVS = 4
 
 # The dim of mask before/after mask encoding.
 _C.MODEL.DTInst.MASK_SIZE = 28
-_C.MODEL.DTInst.MASK_SPARSE_ALPHA = 0.01
+_C.MODEL.DTInst.MASK_SPARSE_ALPHA = 0.1
 _C.MODEL.DTInst.MASK_SPARSE_WEIGHT = 0.0
 _C.MODEL.DTInst.MASK_LOSS_WEIGHT = 1.0
 
@@ -405,7 +405,7 @@ _C.MODEL.DTInst.MASK_LOSS_WEIGHT = 1.0
 _C.MODEL.DTInst.NUM_VERTEX = 180
 _C.MODEL.DTInst.NUM_CODE = 64
 _C.MODEL.DTInst.POLYGON_SPARSE_ALPHA = 0.01
-_C.MODEL.DTInst.MAX_ISTA_ITER = 100
+_C.MODEL.DTInst.MAX_ISTA_ITER = 80
 _C.MODEL.DTInst.DIST_TYPE = "L2"
 # The default path for parameters of mask encoding.
 _C.MODEL.DTInst.PATH_DICTIONARY = "datasets/coco/components/" \
