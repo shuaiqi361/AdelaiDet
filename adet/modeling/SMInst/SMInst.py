@@ -186,7 +186,7 @@ class SMInstHead(nn.Module):
 
         self.type_deformable = cfg.MODEL.SMInst.TYPE_DEFORMABLE
         self.last_deformable = cfg.MODEL.SMInst.LAST_DEFORMABLE
-        norm = None if cfg.MODEL.SMInst.NORM == "none" else cfg.MODEL.SMInst.NORM
+        self.norm = None if cfg.MODEL.SMInst.NORM == "none" else cfg.MODEL.SMInst.NORM
 
         in_channels = [s.channels for s in input_shape]
         assert len(set(in_channels)) == 1, "Each level must have the same channel!"
@@ -199,7 +199,7 @@ class SMInstHead(nn.Module):
                 # conv type.
                 if use_deformable:
                     if self.last_deformable:
-                        if i == num_convs - 1:
+                        if i == 0 or i == 1:
                             conv_func = DFConv2d
                             type_func = self.type_deformable
                         else:
@@ -235,14 +235,18 @@ class SMInstHead(nn.Module):
                 else:
                     raise NotImplementedError
                 # norm.
-                if norm == "GN":
+                if self.norm == "GN":
                     tower.append(nn.GroupNorm(32, in_channels))
-                elif norm == "NaiveGN":
+                elif self.norm == "NaiveGN":
                     tower.append(NaiveGroupNorm(32, in_channels))
                 # activation.
                 tower.append(nn.ReLU())
-            self.add_module('{}_tower'.format(head),
-                            nn.Sequential(*tower))
+
+            self.add_module('{}_tower'.format(head), nn.Sequential(*tower))
+            # if head != 'mask':
+            #     self.add_module('{}_tower'.format(head), nn.Sequential(*tower))
+            # else:
+            #     self.add_module('{}_tower'.format(head), nn.ModuleList(tower))
 
         self.cls_logits = nn.Conv2d(
             in_channels, self.num_classes,
@@ -293,6 +297,7 @@ class SMInstHead(nn.Module):
         ctrness = []
         bbox_towers = []
         mask_reg = []
+        mask_tower_interm_outputs = []
         for l, feature in enumerate(x):
             feature = self.share_tower(feature)
             cls_tower = self.cls_tower(feature)
@@ -307,7 +312,17 @@ class SMInstHead(nn.Module):
             bbox_reg.append(F.relu(reg))
 
             # Mask Encoding
+            # mask_tower_interm_output = []
+            # for i, _layer in enumerate(self.mask_tower):
+            #     feature = _layer(feature)
+            #     if self.norm is not None and i % 3 == 0:
+            #         # print('append feature: ', i, feature.size())
+            #         mask_tower_interm_output.append(feature)
+            #     elif self.norm is None and i % 2 == 0:
+            #         mask_tower_interm_output.append(feature)
+
             mask_tower = self.mask_tower(feature)
             mask_reg.append(self.mask_pred(mask_tower))
+            # mask_tower_interm_outputs.append(mask_tower_interm_output)
 
-        return logits, bbox_reg, ctrness, bbox_towers, mask_reg
+        return logits, bbox_reg, ctrness, bbox_towers, mask_reg  #, mask_tower_interm_outputs

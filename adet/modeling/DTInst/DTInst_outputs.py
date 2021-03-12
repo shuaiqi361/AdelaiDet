@@ -53,6 +53,18 @@ def compute_ctrness_targets(reg_targets):
     return torch.sqrt(ctrness)
 
 
+def kl_divergence(rho, rho_hat):
+    """
+    :param rho: desired average activity, should be small
+    :param rho_hat: network pre-act outputs, sigmoid is applied in this function
+    :return:
+    """
+    rho_hat = torch.mean(F.sigmoid(rho_hat), -1)  # sigmoid because we need the probability distributions
+    rho = torch.ones(size=rho_hat.size()) * rho
+    rho = rho.to(rho_hat.device)
+    return rho * torch.log(rho/rho_hat) + (1 - rho) * torch.log((1 - rho)/(1 - rho_hat))
+
+
 class DTInstOutputs(object):
     def __init__(
             self,
@@ -111,6 +123,8 @@ class DTInstOutputs(object):
         self.mask_size = cfg.MODEL.DTInst.MASK_SIZE
         self.mask_sparse_weight = cfg.MODEL.DTInst.MASK_SPARSE_WEIGHT
         self.mask_loss_weight = cfg.MODEL.DTInst.MASK_LOSS_WEIGHT
+        self.sparsity_loss_type = cfg.MODEL.DTInst.SPARSITY_LOSS_TYPE
+        self.kl_rho = cfg.MODEL.DTInst.SPARSITY_KL_RHO
 
         if self.loss_on_mask:
             self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
@@ -447,9 +461,16 @@ class DTInstOutputs(object):
                 mask_loss = mask_loss.sum(1) * ctrness_targets
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                 if self.mask_sparse_weight > 0.:
-                    sparsity_loss = torch.abs(mask_pred).sum(1) * ctrness_targets
-                    sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
-                    mask_loss = mask_loss * self.mask_loss_weight + sparsity_loss * self.mask_sparse_weight
+                    if self.sparsity_loss_type == 'L1':
+                        sparsity_loss = torch.abs(mask_pred).sum(1) * ctrness_targets
+                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + sparsity_loss * self.mask_sparse_weight
+                    elif self.sparsity_loss_type == 'KL':
+                        kl_loss = kl_divergence(self.kl_rho, mask_pred) * ctrness_targets
+                        kl_loss = kl_loss.sum() / max(ctrness_norm, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + kl_loss * self.mask_sparse_weight
+                    else:
+                        raise NotImplementedError
             else:
                 raise NotImplementedError
 
