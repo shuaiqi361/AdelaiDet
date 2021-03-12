@@ -143,7 +143,7 @@ _C.MODEL.MEInst.USE_SCALE = True
 
 # Multiply centerness before threshold
 # This will affect the final performance by about 0.05 AP but save some time
-_C.MODEL.MEInst.THRESH_WITH_CTR = False
+_C.MODEL.MEInst.THRESH_WITH_CTR = True
 
 # Focal loss parameters
 _C.MODEL.MEInst.LOSS_ALPHA = 0.25
