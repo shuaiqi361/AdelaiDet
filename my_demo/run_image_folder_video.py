@@ -149,11 +149,10 @@ def get_parser():
     )
     parser.add_argument("--webcam", action="store_true", help="Take inputs from webcam.")
     parser.add_argument("--img-dir",
-                        default='/media/keyi/Data/Research/traffic/data/AIC2021/Dataset/'
-                                'AIC21_Track1_Vehicle_Counting/AIC21_Track1_Vehicle_Counting/Dataset_A/cam_11_frames')
+                        default='/home/keyi/Documents/Data/AIC/aic2021/cam_11_frames')
     parser.add_argument("--input", nargs="+", help="A list of space separated input images")
     parser.add_argument("--coco-path", type=str,
-                        default='/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17/coco',
+                        default='/home/keyi/Documents/Data/COCO_17/coco',
                         help="root_path to the coco dataset")
     parser.add_argument(
         "--output",
@@ -163,7 +162,7 @@ def get_parser():
     parser.add_argument(
         "--result-dir",
         type=str,
-        default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/experiments/2080_res50_DTInst_002',
+        default='/home/keyi/Documents/research/code/AdelaiDet/experiments/2080_res50_DTInst_002',
         help="A file or directory to save output coco json. ",
     )
     parser.add_argument(

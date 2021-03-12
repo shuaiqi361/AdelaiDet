@@ -52,12 +52,11 @@ def get_parser():
     )
     parser.add_argument("--webcam", action="store_true", help="Take inputs from webcam.")
     parser.add_argument("--data-path", type=str,
-                        default='/media/keyi/Data/Research/traffic/data/AIC2021/Dataset/AIC21_Track1_Vehicle_Counting/'
-                                'Baidu_fineturn_detector_data',
+                        default='/home/keyi/Documents/Data/AIC/Baidu',
                         help="Path to video file.")
     parser.add_argument("--input", nargs="+", help="A list of space separated input images")
     parser.add_argument("--coco-path", type=str,
-                        default='/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17/coco',
+                        default='/home/keyi/Documents/Data/COCO_17',
                         help="root_path to the coco dataset")
     parser.add_argument(
         "--output",
@@ -67,14 +66,14 @@ def get_parser():
     parser.add_argument(
         "--result-dir",
         type=str,
-        default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/experiments/2080_res50_DTInst_002',
+        default='/home/keyi/Documents/research/code/AdelaiDet/experiments/2080_res50_DTInst_002',
         help="A file or directory to save output coco json. ",
     )
 
     parser.add_argument(
         "--confidence-threshold",
         type=float,
-        default=0.05,
+        default=0.2,
         help="Minimum score for instance predictions to be shown",
     )
     parser.add_argument(
@@ -107,6 +106,7 @@ if __name__ == "__main__":
     imgIds = coco.getImgIds()
     seg_results = []
     img_counter = 0
+    valid_ids = []
 
     # unmap the category ids for COCO
     coco_evaluator = COCOEvaluator(dataset_name, cfg, True, output_dir=args.result_dir)
@@ -124,34 +124,42 @@ if __name__ == "__main__":
             continue
         else:
             img_counter += 1
+            valid_ids.append(img_id)
 
         # # plot ground truth cars
         # output_image = cv2.imread(image_path)
         # ann_ids = coco.getAnnIds(imgIds=img_id)
         # gt_anns = coco.loadAnns(ids=ann_ids)
-        #
+
         # for ann_ in gt_anns:
-        #     x1, y1, w, h = ann_['bbox']
-        #     bbox = [x1, y1, x1 + w, y1 + h]
-        #     text = 'class: ' + str(ann_["category_id"])
-        #     label_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_COMPLEX, 0.5, 1)
-        #     text_location = [int(bbox[0]) + 1, int(bbox[1]) + 1,
-        #                      int(bbox[0]) + 1 + label_size[0][0],
-        #                      int(bbox[1]) + 1 + label_size[0][1]]
-        #     cv2.rectangle(output_image, pt1=(int(bbox[0]), int(bbox[1])),
-        #                   pt2=(int(bbox[2]), int(bbox[3])),
-        #                   color=nice_colors[ann_["category_id"]], thickness=2)
-        #     cv2.putText(output_image, text, org=(int(text_location[0]), int(text_location[3])),
-        #                 fontFace=cv2.FONT_HERSHEY_COMPLEX, thickness=1, fontScale=0.5,
-        #                 color=nice_colors[ann_["category_id"]])
-        #
+            # x1, y1, w, h = ann_['bbox']
+            # bbox = [x1, y1, x1 + w, y1 + h]
+            # text = 'class: ' + str(ann_["category_id"])
+            # label_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_COMPLEX, 0.5, 1)
+            # text_location = [int(bbox[0]) + 1, int(bbox[1]) + 1,
+            #                  int(bbox[0]) + 1 + label_size[0][0],
+            #                  int(bbox[1]) + 1 + label_size[0][1]]
+            # cv2.rectangle(output_image, pt1=(int(bbox[0]), int(bbox[1])),
+            #               pt2=(int(bbox[2]), int(bbox[3])),
+            #               color=nice_colors[ann_["category_id"]], thickness=2)
+            # cv2.putText(output_image, text, org=(int(text_location[0]), int(text_location[3])),
+            #             fontFace=cv2.FONT_HERSHEY_COMPLEX, thickness=1, fontScale=0.5,
+            #             color=nice_colors[ann_["category_id"]])
+            # det = {
+            #     'image_id': img_id,
+            #     'category_id': ann_["category_id"],
+            #     'score': 1.0,
+            #     'bbox': ann_['bbox']
+            # }
+            # seg_results.append(det)
+
         # cv2.imshow('GT bbox', output_image)
         # if cv2.waitKey() & 0xFF == ord('q'):
         #     exit()
         #
         # continue
 
-        # use PIL, to be consistent with evaluation
+        # # use PIL, to be consistent with evaluation
         img = read_image(image_path, format="BGR")
         start_time = time.time()
         # predictions, _ = demo.run_on_image(img)
@@ -182,16 +190,20 @@ if __name__ == "__main__":
 
             seg_results.append(result)
 
-    with open('{}/results/{}_baidu_bbox_results.json'.format(args.result_dir, args.data_type), 'w') as f_det:
+    with open('{}/results/{}_baidu_bbox_results_02.json'.format(args.result_dir, args.data_type), 'w') as f_det:
         json.dump(seg_results, f_det)
 
+    # # with open('{}/1584811984_train_final_small.json'.format(args.data_path), 'w') as f_det:
+    # #     json.dump(seg_results, f_det)
+    #
     print('Totally, {} images have been evaluated.'.format(img_counter))
 
     if 'test' not in args.data_type:
         print('---------------------------------------------------------------------------------')
         print('Running bbox evaluation on Baidu finetune data ...')
-        coco_pred = coco.loadRes('{}/results/{}_baidu_bbox_results.json'.format(args.result_dir, args.data_type))
+        coco_pred = coco.loadRes('{}/results/{}_baidu_bbox_results_02.json'.format(args.result_dir, args.data_type))
         coco_eval = COCOeval(coco, coco_pred, 'bbox')
+        coco_eval.params.imgIds = valid_ids
         coco_eval.evaluate()
         coco_eval.accumulate()
         coco_eval.summarize()
