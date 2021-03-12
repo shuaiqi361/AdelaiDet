@@ -53,6 +53,18 @@ def compute_ctrness_targets(reg_targets):
     return torch.sqrt(ctrness)
 
 
+def kl_divergence(rho, rho_hat):
+    """
+    :param rho: desired average activity, should be small
+    :param rho_hat: network pre-act outputs, sigmoid is applied in this function
+    :return:
+    """
+    rho_hat = torch.mean(F.sigmoid(rho_hat), 1)  # sigmoid because we need the probability distributions
+    rho = torch.ones(size=rho_hat.size()) * rho
+    rho = rho.to(rho_hat.device)
+    return rho * torch.log(rho/rho_hat) + (1 - rho) * torch.log((1 - rho)/(1 - rho_hat))
+
+
 class SMInstOutputs(object):
     def __init__(
             self,
@@ -62,6 +74,7 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_regression,
+            mask_tower_interm_outputs,
             mask_encoding,
             focal_loss_alpha,
             focal_loss_gamma,
@@ -86,6 +99,7 @@ class SMInstOutputs(object):
         self.locations = locations
         self.mask_regression = mask_regression
         self.mask_encoding = mask_encoding
+        self.mask_tower_interm_outputs = mask_tower_interm_outputs
 
         self.gt_instances = gt_instances
         self.num_feature_maps = len(logits_pred)
@@ -109,6 +123,11 @@ class SMInstOutputs(object):
         self.mask_loss_type = cfg.MODEL.SMInst.MASK_LOSS_TYPE
         self.num_codes = cfg.MODEL.SMInst.NUM_CODE
         self.mask_size = cfg.MODEL.SMInst.MASK_SIZE
+        self.mask_sparse_weight = cfg.MODEL.SMInst.MASK_SPARSE_WEIGHT
+        self.mask_loss_weight = cfg.MODEL.SMInst.MASK_LOSS_WEIGHT
+        self.sparsity_loss_type = cfg.MODEL.SMInst.SPARSITY_LOSS_TYPE
+        self.kl_rho = cfg.MODEL.SMInst.SPARSITY_KL_RHO
+
         if self.loss_on_mask:
             self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
         elif self.mask_loss_type == 'mse':
@@ -372,7 +391,8 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_pred,
-            mask_targets
+            mask_targets,
+            mask_tower_interm_outputs
     ):
         num_classes = logits_pred.size(1)
         labels = labels.flatten()
@@ -439,6 +459,27 @@ class SMInstOutputs(object):
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                if self.mask_sparse_weight > 0.:
+                    if self.sparsity_loss_type == 'L1':
+                        # sparsity_loss = torch.mean(mask_pred, 1) * ctrness_targets
+                        # sparsity_loss = sparsity_loss.sum() / max(ctrness_norm, 1.0)
+                        sparsity_loss = 0.
+                        for out in mask_tower_interm_outputs:
+                            _loss = torch.mean(out, 1) * ctrness_targets
+                            sparsity_loss += _loss.sum() / max(ctrness_norm, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + \
+                                    sparsity_loss * self.mask_sparse_weight
+                    elif self.sparsity_loss_type == 'KL':
+                        # kl_loss = kl_divergence(self.kl_rho, mask_pred) * ctrness_targets
+                        # kl_loss = kl_loss.sum() / max(ctrness_norm, 1.0)
+                        kl_loss = 0.
+                        for out in mask_tower_interm_outputs:
+                            _loss = kl_divergence(self.kl_rho, out) * ctrness_targets
+                            kl_loss += _loss.sum() / max(ctrness_norm, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + \
+                                    kl_loss * self.mask_sparse_weight
+                    else:
+                        raise NotImplementedError
             else:
                 raise NotImplementedError
 
@@ -502,6 +543,16 @@ class SMInstOutputs(object):
                 for x in self.mask_regression
             ], dim=0, )
 
+        mask_tower_interm_outputs = []
+        for _outputs in self.mask_tower_interm_outputs:
+            mask_tower_interm_output = cat(
+                [
+                    x.permute(0, 2, 3, 1).reshape(-1, x.shape[-1]) for x in _outputs
+                ], dim=0
+            )
+            mask_tower_interm_outputs.append(mask_tower_interm_output)
+        mask_tower_interm_outputs = cat(mask_tower_interm_outputs, dim=0)
+
         mask_targets = cat(
             [
                 # Reshape: (N, Hi, Wi, mask_size^2) -> (N*Hi*Wi, mask_size^2)
@@ -515,7 +566,8 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_pred,
-            mask_targets
+            mask_targets,
+            mask_tower_interm_outputs
         )
 
     def predict_proposals(self):

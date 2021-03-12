@@ -268,7 +268,7 @@ _C.MODEL.SMInst.USE_SCALE = True
 
 # Multiply centerness before threshold
 # This will affect the final performance by about 0.05 AP but save some time
-_C.MODEL.SMInst.THRESH_WITH_CTR = False
+_C.MODEL.SMInst.THRESH_WITH_CTR = True
 
 # Focal loss parameters
 _C.MODEL.SMInst.LOSS_ALPHA = 0.25
@@ -277,7 +277,7 @@ _C.MODEL.SMInst.SIZES_OF_INTEREST = [64, 128, 256, 512]
 _C.MODEL.SMInst.USE_RELU = True
 _C.MODEL.SMInst.USE_DEFORMABLE = False
 _C.MODEL.SMInst.LAST_DEFORMABLE = False
-_C.MODEL.SMInst.TYPE_DEFORMABLE = "DCNv1"  # or DCNv2.
+_C.MODEL.SMInst.TYPE_DEFORMABLE = "DCNv2"  # or DCNv2.
 
 # the number of convolutions used in the cls and bbox tower
 _C.MODEL.SMInst.NUM_CLS_CONVS = 4
@@ -309,16 +309,20 @@ _C.MODEL.SMInst.NUM_MASK_CONVS = 4
 # The dim of mask before/after mask encoding.
 _C.MODEL.SMInst.DIM_MASK = 60
 _C.MODEL.SMInst.MASK_SIZE = 28
-_C.MODEL.SMInst.MASK_SPARSE_ALPHA = 0.01
+_C.MODEL.SMInst.MASK_SPARSE_ALPHA = 0.1
+_C.MODEL.DTInst.MASK_SPARSE_WEIGHT = 0.0
+_C.MODEL.DTInst.MASK_LOSS_WEIGHT = 1.0
+_C.MODEL.DTInst.SPARSITY_LOSS_TYPE = 'KL'
+_C.MODEL.DTInst.SPARSITY_KL_RHO = 0.05
 
 # The dim for sparse shape encoding
 _C.MODEL.SMInst.NUM_VERTEX = 180
-_C.MODEL.SMInst.NUM_CODE = 64
-_C.MODEL.SMInst.POLYGON_SPARSE_ALPHA = 0.01
-_C.MODEL.SMInst.MAX_ISTA_ITER = 100
+_C.MODEL.SMInst.NUM_CODE = 256
+_C.MODEL.SMInst.POLYGON_SPARSE_ALPHA = 0.1
+_C.MODEL.SMInst.MAX_ISTA_ITER = 70
 # The default path for parameters of mask encoding.
-_C.MODEL.SMInst.PATH_DICTIONARY = "datasets/coco/components/" \
-                                   "coco_2017_train_class_agnosticTrue_whitenTrue_sigmoidTrue_60.npz"
+_C.MODEL.SMInst.PATH_DICTIONARY = "/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling/SMInst/" \
+                                  "dictionary/mask_fromMask_basis_m28_n256_a0.10.npy"
 # An indicator for encoding parameters loading during training.
 _C.MODEL.SMInst.FLAG_PARAMETERS = False
 # The loss for mask branch, can be mse now.
@@ -400,6 +404,8 @@ _C.MODEL.DTInst.MASK_SIZE = 28
 _C.MODEL.DTInst.MASK_SPARSE_ALPHA = 0.1
 _C.MODEL.DTInst.MASK_SPARSE_WEIGHT = 0.0
 _C.MODEL.DTInst.MASK_LOSS_WEIGHT = 1.0
+_C.MODEL.DTInst.SPARSITY_LOSS_TYPE = 'L1'
+_C.MODEL.DTInst.SPARSITY_KL_RHO = 0.1
 
 # The dim for sparse shape encoding
 _C.MODEL.DTInst.NUM_VERTEX = 180
