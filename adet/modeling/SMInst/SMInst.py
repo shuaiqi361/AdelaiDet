@@ -81,7 +81,7 @@ class SMInst(nn.Module):
         """
         features = [features[f] for f in self.in_features]
         locations = self.compute_locations(features)
-        logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression, mask_tower_interm_outputs = self.SMInst_head(features)
+        logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression = self.SMInst_head(features)
 
         if self.training:
             pre_nms_thresh = self.pre_nms_thresh_train
@@ -109,7 +109,6 @@ class SMInst(nn.Module):
             reg_pred,
             ctrness_pred,
             mask_regression,
-            mask_tower_interm_outputs,
             self.mask_encoding,
             self.focal_loss_alpha,
             self.focal_loss_gamma,
@@ -200,7 +199,7 @@ class SMInstHead(nn.Module):
                 # conv type.
                 if use_deformable:
                     if self.last_deformable:
-                        if i == num_convs - 1:
+                        if i == 0 or i == 1:
                             conv_func = DFConv2d
                             type_func = self.type_deformable
                         else:
@@ -242,8 +241,12 @@ class SMInstHead(nn.Module):
                     tower.append(NaiveGroupNorm(32, in_channels))
                 # activation.
                 tower.append(nn.ReLU())
-            self.add_module('{}_tower'.format(head),
-                            nn.Sequential(*tower))
+
+            self.add_module('{}_tower'.format(head), nn.Sequential(*tower))
+            # if head != 'mask':
+            #     self.add_module('{}_tower'.format(head), nn.Sequential(*tower))
+            # else:
+            #     self.add_module('{}_tower'.format(head), nn.ModuleList(tower))
 
         self.cls_logits = nn.Conv2d(
             in_channels, self.num_classes,
@@ -309,17 +312,17 @@ class SMInstHead(nn.Module):
             bbox_reg.append(F.relu(reg))
 
             # Mask Encoding
-            mask_tower_interm_output = []
-            for i in len(self.mask_tower):
-                feature = self.mask_tower[i](feature)
-                if self.norm is not None and i % 3 == 0:
-                    mask_tower_interm_output.append(feature)
-                elif self.norm is None and i % 2 == 0:
-                    mask_tower_interm_output.append(feature)
-                else:
-                    raise NotImplementedError
-            # mask_tower = self.mask_tower(feature)
-            mask_reg.append(self.mask_pred(feature))
-            mask_tower_interm_outputs.append(mask_tower_interm_output)
+            # mask_tower_interm_output = []
+            # for i, _layer in enumerate(self.mask_tower):
+            #     feature = _layer(feature)
+            #     if self.norm is not None and i % 3 == 0:
+            #         # print('append feature: ', i, feature.size())
+            #         mask_tower_interm_output.append(feature)
+            #     elif self.norm is None and i % 2 == 0:
+            #         mask_tower_interm_output.append(feature)
 
-        return logits, bbox_reg, ctrness, bbox_towers, mask_reg, mask_tower_interm_outputs
+            mask_tower = self.mask_tower(feature)
+            mask_reg.append(self.mask_pred(mask_tower))
+            # mask_tower_interm_outputs.append(mask_tower_interm_output)
+
+        return logits, bbox_reg, ctrness, bbox_towers, mask_reg  #, mask_tower_interm_outputs

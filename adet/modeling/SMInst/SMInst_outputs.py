@@ -59,7 +59,7 @@ def kl_divergence(rho, rho_hat):
     :param rho_hat: network pre-act outputs, sigmoid is applied in this function
     :return:
     """
-    rho_hat = torch.mean(F.sigmoid(rho_hat), 1)  # sigmoid because we need the probability distributions
+    rho_hat = torch.mean(torch.sigmoid(rho_hat), 1)  # sigmoid because we need the probability distributions
     rho = torch.ones(size=rho_hat.size()) * rho
     rho = rho.to(rho_hat.device)
     return rho * torch.log(rho/rho_hat) + (1 - rho) * torch.log((1 - rho)/(1 - rho_hat))
@@ -74,7 +74,6 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_regression,
-            mask_tower_interm_outputs,
             mask_encoding,
             focal_loss_alpha,
             focal_loss_gamma,
@@ -99,7 +98,7 @@ class SMInstOutputs(object):
         self.locations = locations
         self.mask_regression = mask_regression
         self.mask_encoding = mask_encoding
-        self.mask_tower_interm_outputs = mask_tower_interm_outputs
+        # self.mask_tower_interm_outputs = mask_tower_interm_outputs
 
         self.gt_instances = gt_instances
         self.num_feature_maps = len(logits_pred)
@@ -391,8 +390,7 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_pred,
-            mask_targets,
-            mask_tower_interm_outputs
+            mask_targets
     ):
         num_classes = logits_pred.size(1)
         labels = labels.flatten()
@@ -415,10 +413,13 @@ class SMInstOutputs(object):
             reduction="sum",
         ) / num_pos_avg
 
+        # print(mask_pred.size(), mask_tower_interm_outputs.size())
+
         reg_pred = reg_pred[pos_inds]
         reg_targets = reg_targets[pos_inds]
         ctrness_pred = ctrness_pred[pos_inds]
         mask_pred = mask_pred[pos_inds]
+
         assert mask_pred.shape[0] == mask_targets.shape[0], \
             print("The number(positive) should be equal between "
                   "masks_pred(prediction) and mask_targets(target).")
@@ -461,21 +462,22 @@ class SMInstOutputs(object):
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                 if self.mask_sparse_weight > 0.:
                     if self.sparsity_loss_type == 'L1':
-                        # sparsity_loss = torch.mean(mask_pred, 1) * ctrness_targets
-                        # sparsity_loss = sparsity_loss.sum() / max(ctrness_norm, 1.0)
-                        sparsity_loss = 0.
-                        for out in mask_tower_interm_outputs:
-                            _loss = torch.mean(out, 1) * ctrness_targets
-                            sparsity_loss += _loss.sum() / max(ctrness_norm, 1.0)
+                        sparsity_loss = torch.mean(mask_pred, 1) * ctrness_targets
+                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm, 1.0)
+                        # sparsity_loss = 0.
+                        # for out in mask_tower_interm_outputs:
+                        #     _loss = torch.mean(out, 1) * ctrness_targets
+                        #     sparsity_loss += _loss.sum() / max(ctrness_norm, 1.0)
                         mask_loss = mask_loss * self.mask_loss_weight + \
                                     sparsity_loss * self.mask_sparse_weight
                     elif self.sparsity_loss_type == 'KL':
-                        # kl_loss = kl_divergence(self.kl_rho, mask_pred) * ctrness_targets
-                        # kl_loss = kl_loss.sum() / max(ctrness_norm, 1.0)
-                        kl_loss = 0.
-                        for out in mask_tower_interm_outputs:
-                            _loss = kl_divergence(self.kl_rho, out) * ctrness_targets
-                            kl_loss += _loss.sum() / max(ctrness_norm, 1.0)
+                        kl_loss = kl_divergence(self.kl_rho, mask_pred) * ctrness_targets
+                        kl_loss = kl_loss.sum() / max(ctrness_norm, 1.0)
+                        # kl_loss = 0.
+                        # # for out in mask_tower_interm_outputs:
+                        # print(mask_tower_interm_outputs.size())
+                        # _loss = kl_divergence(self.kl_rho, mask_tower_interm_outputs)  # * ctrness_targets
+                        # kl_loss += _loss.sum() / max(ctrness_norm, 1.0)
                         mask_loss = mask_loss * self.mask_loss_weight + \
                                     kl_loss * self.mask_sparse_weight
                     else:
@@ -543,15 +545,16 @@ class SMInstOutputs(object):
                 for x in self.mask_regression
             ], dim=0, )
 
-        mask_tower_interm_outputs = []
-        for _outputs in self.mask_tower_interm_outputs:
-            mask_tower_interm_output = cat(
-                [
-                    x.permute(0, 2, 3, 1).reshape(-1, x.shape[-1]) for x in _outputs
-                ], dim=0
-            )
-            mask_tower_interm_outputs.append(mask_tower_interm_output)
-        mask_tower_interm_outputs = cat(mask_tower_interm_outputs, dim=0)
+        # mask_tower_interm_outputs = []
+        # for _outputs in self.mask_tower_interm_outputs:
+        #     mask_tower_interm_output = cat(
+        #         [
+        #             x.permute(0, 2, 3, 1).reshape(-1, x.shape[1]) for x in _outputs
+        #         ], dim=0
+        #     )
+        #     mask_tower_interm_outputs.append(mask_tower_interm_output)
+        #     # print('interm: ', mask_tower_interm_output.size())
+        # mask_tower_interm_outputs = cat(mask_tower_interm_outputs, dim=0)
 
         mask_targets = cat(
             [
@@ -566,8 +569,7 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_pred,
-            mask_targets,
-            mask_tower_interm_outputs
+            mask_targets
         )
 
     def predict_proposals(self):
