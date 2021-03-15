@@ -27,12 +27,12 @@ def parse_args():
                         type=str)
     parser.add_argument('--dataset', default='coco_2017_val', type=str)
     parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/'
-                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n64_a0.01.npy',
+                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n512_a0.50.npy',
                         type=str)
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
-    parser.add_argument('--n_codes', default=64, type=int)
-    parser.add_argument('--mask_sparse_alpha', default=0.01, type=float)
+    parser.add_argument('--n_codes', default=512, type=int)
+    parser.add_argument('--mask_sparse_alpha', default=0.5, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     args = parser.parse_args()
     return args
@@ -61,6 +61,7 @@ if __name__ == "__main__":
     mask_data = MaskLoader(root=dataset_root, dataset=args.dataset, size=mask_size)
     mask_loader = DataLoader(mask_data, batch_size=args.batch_size, shuffle=False, num_workers=4)
     size_data = len(mask_loader)
+    sparsity_counts = []
 
     # evaluation.
     IoUevaluate = IOUMetric(2)
@@ -72,11 +73,14 @@ if __name__ == "__main__":
         masks = masks.to(torch.float32)
 
         # --> encode --> decode.
-        mask_codes = fast_ista(masks, learned_dict, lmbda=sparse_alpha, max_iter=100)
+        mask_codes = fast_ista(masks, learned_dict, lmbda=sparse_alpha, max_iter=70)
         mask_rc = torch.matmul(mask_codes, learned_dict).numpy()
+
+        sparsity_counts.append(np.sum(np.abs(mask_codes.numpy()) > 1e-4))
         # eva.
         mask_rc = np.where(mask_rc >= 0.5, 1, 0)
         IoUevaluate.add_batch(mask_rc, masks.numpy())
 
     _, _, _, mean_iu, _ = IoUevaluate.evaluate()
     print("The mIoU for {}: {}".format(dictionary_path.split('/')[-1], mean_iu))
+    print('Overall code activation rate: ', np.sum(sparsity_counts) * 1. / size_data / n_codes / args.batch_size)
