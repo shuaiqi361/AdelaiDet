@@ -495,8 +495,8 @@ class SMInstOutputs(object):
                     mask_targets,
                     mask_targets.detach()
                 )
-                mask_loss = mask_loss * ctrness_targets
-                mask_loss = mask_loss.sum() / max(ctrness_norm, 1.0)
+                mask_loss = mask_loss * ctrness_targets * self.num_codes
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
             elif self.mask_loss_type == 'cosine':
                 mask_loss = self.mask_loss_func(
                     mask_pred,

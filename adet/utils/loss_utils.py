@@ -55,6 +55,7 @@ def loss_kl_div(true, pred):
 
 
 def weighted_mse_loss(pred, target, weights):
+    weights_ = weights + 1e-3
     mse_loss = F.mse_loss(pred, target, reduction='none')
-    loss = torch.sum(mse_loss * weights, dim=1) / (torch.sum(weights, dim=1) + 1e-4)
+    loss = torch.sum(mse_loss * weights_, dim=-1) / torch.sum(weights_, dim=-1)
     return loss
