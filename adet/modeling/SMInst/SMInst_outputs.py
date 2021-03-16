@@ -14,6 +14,7 @@ from fvcore.nn import sigmoid_focal_loss_jit
 
 from adet.utils.comm import reduce_sum
 from adet.layers import ml_nms
+from adet.utils.loss_utils import loss_kl_div, loss_cos_sim, weighted_mse_loss
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,12 @@ class SMInstOutputs(object):
             self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
         elif self.mask_loss_type == 'mse':
             self.mask_loss_func = nn.MSELoss(reduction="none")
+        elif self.mask_loss_type == 'cosine':
+            self.mask_loss_func = loss_cos_sim
+        elif self.mask_loss_type == 'kl':
+            self.mask_loss_func = loss_kl_div
+        elif self.mask_loss_type == 'weighted_mse':
+            self.mask_loss_func = weighted_mse_loss
         else:
             raise NotImplementedError
 
@@ -462,15 +469,15 @@ class SMInstOutputs(object):
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                 if self.mask_sparse_weight > 0.:
                     if self.sparsity_loss_type == 'L1':
-                        sparsity_loss = torch.mean(mask_pred, 1) * ctrness_targets
-                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm, 1.0)
+                        sparsity_loss = torch.abs(mask_pred).sum(1) * ctrness_targets
+                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                         # sparsity_loss = 0.
                         # for out in mask_tower_interm_outputs:
                         #     _loss = torch.mean(out, 1) * ctrness_targets
                         #     sparsity_loss += _loss.sum() / max(ctrness_norm, 1.0)
                         mask_loss = mask_loss * self.mask_loss_weight + \
                                     sparsity_loss * self.mask_sparse_weight
-                    elif self.sparsity_loss_type == 'KL':
+                    elif self.sparsity_loss_type == 'KL':  # not in use
                         kl_loss = kl_divergence(self.kl_rho, mask_pred) * ctrness_targets
                         kl_loss = kl_loss.sum() / max(ctrness_norm, 1.0)
                         # kl_loss = 0.
@@ -482,6 +489,28 @@ class SMInstOutputs(object):
                                     kl_loss * self.mask_sparse_weight
                     else:
                         raise NotImplementedError
+            elif self.mask_loss_type == 'weighted_mse':
+                mask_loss = self.mask_loss_func(
+                    mask_pred,
+                    mask_targets,
+                    mask_targets
+                )
+                mask_loss = mask_loss * ctrness_targets * self.num_codes
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+            elif self.mask_loss_type == 'cosine':
+                mask_loss = self.mask_loss_func(
+                    mask_pred,
+                    mask_targets
+                )
+                mask_loss = mask_loss * ctrness_targets * self.num_codes
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+            elif self.mask_loss_type == 'kl':
+                mask_loss = self.mask_loss_func(
+                    mask_pred,
+                    mask_targets
+                )
+                mask_loss = mask_loss.sum(1) * ctrness_targets
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
             else:
                 raise NotImplementedError
 

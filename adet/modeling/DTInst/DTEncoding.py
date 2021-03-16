@@ -73,11 +73,11 @@ class DistanceTransformEncoding(nn.Module):
         X_transformed = torch.matmul(X, self.dictionary)
 
         if is_train:
-            pass
-            # X_transformed = torch.clamp(X_transformed, min=0.001, max=0.999)
+            X_transformed_img = X_transformed + 0.9 >= 0.5
+            return X_transformed, X_transformed_img
         else:
-            # X_transformed = torch.clamp(X_transformed + 0.9, min=0.01, max=0.99)  # for normal DTM
-            X_transformed = torch.clamp(X_transformed + 0.65, min=0.01, max=0.99)  # for augmented DTM with contour emphasis
+            X_transformed = torch.clamp(X_transformed + 0.9, min=0.01, max=0.99)  # for normal DTM
+            # X_transformed = torch.clamp(X_transformed + 0.65, min=0.01, max=0.99)  # for augmented DTM with contour emphasis
             # X_transformed = torch.clamp(X_transformed - 0.1, min=0.01, max=0.99)
 
         return X_transformed

@@ -199,7 +199,7 @@ class SMInstHead(nn.Module):
                 # conv type.
                 if use_deformable:
                     if self.last_deformable:
-                        if i == 0 or i == 1:
+                        if i % 2 == 0:
                             conv_func = DFConv2d
                             type_func = self.type_deformable
                         else:
@@ -297,7 +297,7 @@ class SMInstHead(nn.Module):
         ctrness = []
         bbox_towers = []
         mask_reg = []
-        mask_tower_interm_outputs = []
+        # mask_tower_interm_outputs = []
         for l, feature in enumerate(x):
             feature = self.share_tower(feature)
             cls_tower = self.cls_tower(feature)

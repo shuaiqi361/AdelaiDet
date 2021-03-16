@@ -27,12 +27,12 @@ def parse_args():
                         type=str)
     parser.add_argument('--dataset', default='coco_2017_val', type=str)
     parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/'
-                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n512_a0.50.npy',
+                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n256_a0.30.npy',
                         type=str)
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
-    parser.add_argument('--n_codes', default=512, type=int)
-    parser.add_argument('--mask_sparse_alpha', default=0.5, type=float)
+    parser.add_argument('--n_codes', default=256, type=int)
+    parser.add_argument('--mask_sparse_alpha', default=0.3, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     args = parser.parse_args()
     return args

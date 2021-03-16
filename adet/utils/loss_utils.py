@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import numpy as np
 
 
@@ -30,3 +31,30 @@ def logcosh(true, pred, reduction="none"):
         return loss
     else:
         return torch.sum(loss)
+
+
+def loss_cos_sim(true, pred):
+    # minimize average cosine similarity
+    # cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
+    # output = cos(true, pred)
+    output = F.cosine_similarity(true, pred, dim=-1, eps=1e-6)
+    return output
+
+
+def loss_kl_div(true, pred):
+    # output = F.kl_div(torch.sigmoid(true), torch.sigmoid(pred))
+    # rho = torch.sigmoid(true)
+    # rho_hat = torch.sigmoid(pred)
+    # kl_div = rho * torch.log(rho / rho_hat) + (1 - rho) * torch.log((1 - rho) / (1 - rho_hat))
+
+    input_log_softmax = F.log_softmax(pred, dim=1)
+    target_softmax = F.softmax(true, dim=1)
+    kl_div = F.kl_div(input_log_softmax, target_softmax, reduction='none')
+
+    return kl_div
+
+
+def weighted_mse_loss(pred, target, weights):
+    mse_loss = F.mse_loss(pred, target, reduction='none')
+    loss = torch.sum(mse_loss * weights, dim=1) / (torch.sum(weights, dim=1) + 1e-5)
+    return loss

@@ -99,6 +99,39 @@ def prepare_distance_transform_from_mask(masks, mask_size, kernel=3, dist_type=c
     return DTMs
 
 
+def prepare_distance_transform_from_mask_with_weights(masks, mask_size, kernel=5, dist_type=cv2.DIST_L2, weighting=0.1):
+    """
+    Given a set of masks as torch tensor, convert to numpy array, find distance transform maps from them,
+    and convert DTMs back to torch tensor, a weight map with 1 - DTM will be returned(emphasizing boundary and thin parts)
+    :param weighting: weighting for background pixels on the DTMs
+    :param dist_type: used for distance transform
+    :param kernel: kernel size for distance transforms
+    :param masks: input masks for instance segmentation, shape: (N, mask_size, mask_size)
+    :param mask_size: input mask size
+    :return: a set of distance transform maps, and a weight map in torch tensor, with the same shape as input masks
+    """
+    assert mask_size * mask_size == masks.shape[1]
+    device = masks.device
+    masks = masks.view(masks.shape[0], mask_size, mask_size).cpu().numpy()
+    masks = masks.astype(np.uint8)
+    DTMs = []
+    weight_maps = []
+    for m in masks:
+        dist_m = cv2.distanceTransform(m, distanceType=dist_type, maskSize=kernel)
+        dist_m = dist_m / np.max(dist_m)  # basic dtms in (0, 1)
+        weight_map = np.where(dist_m > 0, 1 + weighting - dist_m, weighting).astype(np.float32)
+        dist_map = np.where(dist_m > 0, dist_m, -1).astype(np.float32)  # DTM in (-1, 0-1)
+        weight_maps.append(weight_map.reshape((1, -1)))
+        DTMs.append(dist_map.reshape((1, -1)))
+
+    DTMs = np.concatenate(DTMs, axis=0)
+    weight_maps = np.concatenate(weight_maps, axis=0)
+    DTMs = torch.from_numpy(DTMs).to(torch.float32).to(device)
+    weight_maps = torch.from_numpy(weight_maps).to(torch.float32).to(device)
+
+    return DTMs, weight_maps
+
+
 def prepare_augmented_distance_transform_from_mask(masks, mask_size, kernel=3, dist_type=cv2.DIST_L2):
     """
     Given a set of masks as torch tensor, convert to numpy array, find distance transform maps from them,
