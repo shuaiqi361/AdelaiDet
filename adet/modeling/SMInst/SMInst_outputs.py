@@ -14,7 +14,7 @@ from fvcore.nn import sigmoid_focal_loss_jit
 
 from adet.utils.comm import reduce_sum
 from adet.layers import ml_nms
-from adet.utils.loss_utils import loss_kl_div, loss_cos_sim, weighted_mse_loss
+from adet.utils.loss_utils import loss_kl_div, loss_cos_sim, smooth_l1_loss
 
 logger = logging.getLogger(__name__)
 
@@ -136,8 +136,8 @@ class SMInstOutputs(object):
             self.mask_loss_func = loss_cos_sim
         elif self.mask_loss_type == 'kl':
             self.mask_loss_func = loss_kl_div
-        elif self.mask_loss_type == 'weighted_mse':
-            self.mask_loss_func = weighted_mse_loss
+        elif self.mask_loss_type == 'smooth':
+            self.mask_loss_func = smooth_l1_loss
         else:
             raise NotImplementedError
 
@@ -489,13 +489,12 @@ class SMInstOutputs(object):
                                     kl_loss * self.mask_sparse_weight
                     else:
                         raise NotImplementedError
-            elif self.mask_loss_type == 'weighted_mse':
+            elif self.mask_loss_type == 'smooth':
                 mask_loss = self.mask_loss_func(
                     mask_pred,
-                    mask_targets,
-                    mask_targets.detach()
+                    mask_targets
                 )
-                mask_loss = mask_loss * ctrness_targets * self.num_codes
+                mask_loss = mask_loss.sum(1) * ctrness_targets
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
             elif self.mask_loss_type == 'cosine':
                 mask_loss = self.mask_loss_func(
