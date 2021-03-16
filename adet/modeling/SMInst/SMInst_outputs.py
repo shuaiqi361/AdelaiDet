@@ -509,7 +509,7 @@ class SMInstOutputs(object):
                     mask_pred,
                     mask_targets
                 )
-                mask_loss = mask_loss.sum(1) * ctrness_targets
+                mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
             else:
                 raise NotImplementedError
