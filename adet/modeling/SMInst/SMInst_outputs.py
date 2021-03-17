@@ -464,7 +464,7 @@ class SMInstOutputs(object):
             # m*m mask labels --> n_components encoding labels
             mask_targets = self.mask_encoding.encoder(mask_targets)
             if self.mask_loss_type == 'mse':
-                mask_loss = self.mask_loss_func(
+                mask_loss = self.mask_loss_func_code(
                     mask_pred,
                     mask_targets
                 )
@@ -494,7 +494,7 @@ class SMInstOutputs(object):
                         raise NotImplementedError
                 total_mask_loss += mask_loss
             elif self.mask_loss_type == 'smooth':
-                mask_loss = self.mask_loss_func(
+                mask_loss = self.mask_loss_func_code(
                     mask_pred,
                     mask_targets
                 )
@@ -502,7 +502,7 @@ class SMInstOutputs(object):
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                 total_mask_loss += mask_loss
             elif self.mask_loss_type == 'cosine':
-                mask_loss = self.mask_loss_func(
+                mask_loss = self.mask_loss_func_code(
                     mask_pred,
                     mask_targets
                 )
@@ -510,7 +510,7 @@ class SMInstOutputs(object):
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                 total_mask_loss += mask_loss
             elif self.mask_loss_type == 'kl':
-                mask_loss = self.mask_loss_func(
+                mask_loss = self.mask_loss_func_code(
                     mask_pred,
                     mask_targets
                 )
