@@ -326,7 +326,7 @@ _C.MODEL.SMInst.PATH_DICTIONARY = "/media/keyi/Data/Research/traffic/detection/A
 # An indicator for encoding parameters loading during training.
 _C.MODEL.SMInst.FLAG_PARAMETERS = False
 # The loss for mask branch, can be mse now.
-_C.MODEL.SMInst.MASK_LOSS_TYPE = "mse"
+_C.MODEL.SMInst.MASK_LOSS_TYPE = ["mse", "cosine", "kl"]
 _C.MODEL.SMInst.SHAPE_LOSS_TYPE = "piou"
 
 # Whether to use gcn in mask prediction.

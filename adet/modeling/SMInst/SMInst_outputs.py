@@ -452,9 +452,9 @@ class SMInstOutputs(object):
         if self.loss_on_mask:
             # n_components predictions --> m*m mask predictions without sigmoid
             # as sigmoid function is combined in loss.
-            mask_pred = self.mask_encoding.decoder(mask_pred, is_train=True)
+            mask_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)
             mask_loss = F.mse_loss(
-                mask_pred,
+                mask_pred_,
                 mask_targets,
                 reduction='none'
             )
@@ -463,11 +463,11 @@ class SMInstOutputs(object):
             total_mask_loss += mask_loss
         if self.loss_on_code:
             # m*m mask labels --> n_components encoding labels
-            mask_targets = self.mask_encoding.encoder(mask_targets)
+            mask_targets_ = self.mask_encoding.encoder(mask_targets)
             if 'mse' in self.mask_loss_type:
                 mask_loss = F.mse_loss(
                     mask_pred,
-                    mask_targets,
+                    mask_targets_,
                     reduction='none'
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
@@ -476,7 +476,7 @@ class SMInstOutputs(object):
             if 'smooth' in self.mask_loss_type:
                 mask_loss = F.smooth_l1_loss(
                     mask_pred,
-                    mask_targets,
+                    mask_targets_,
                     reduction='none'
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
@@ -485,7 +485,7 @@ class SMInstOutputs(object):
             if 'cosine' in self.mask_loss_type:
                 mask_loss = loss_cos_sim(
                     mask_pred,
-                    mask_targets
+                    mask_targets_
                 )
                 mask_loss = mask_loss * ctrness_targets * self.num_codes
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
@@ -493,7 +493,7 @@ class SMInstOutputs(object):
             if 'kl' in self.mask_loss_type:
                 mask_loss = loss_kl_div(
                     mask_pred,
-                    mask_targets
+                    mask_targets_
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
