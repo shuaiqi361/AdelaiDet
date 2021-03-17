@@ -129,18 +129,18 @@ class SMInstOutputs(object):
         self.sparsity_loss_type = cfg.MODEL.SMInst.SPARSITY_LOSS_TYPE
         self.kl_rho = cfg.MODEL.SMInst.SPARSITY_KL_RHO
 
-        if self.loss_on_mask:
-            self.mask_loss_func_mask = nn.MSELoss(reduction="none")
-        elif self.mask_loss_type == 'mse':
-            self.mask_loss_func_code = nn.MSELoss(reduction="none")
-        elif self.mask_loss_type == 'cosine':
-            self.mask_loss_func_code = loss_cos_sim
-        elif self.mask_loss_type == 'kl':
-            self.mask_loss_func_code = loss_kl_div
-        elif self.mask_loss_type == 'smooth':
-            self.mask_loss_func_code = smooth_l1_loss
-        else:
-            raise NotImplementedError
+        # if self.loss_on_mask:
+        #     self.mask_loss_func_mask = nn.MSELoss(reduction="none")
+        # elif self.mask_loss_type == 'mse':
+        #     self.mask_loss_func_code = nn.MSELoss(reduction="none")
+        # elif self.mask_loss_type == 'cosine':
+        #     self.mask_loss_func_code = loss_cos_sim
+        # elif self.mask_loss_type == 'kl':
+        #     self.mask_loss_func_code = loss_kl_div
+        # elif self.mask_loss_type == 'smooth':
+        #     self.mask_loss_func_code = smooth_l1_loss
+        # else:
+        #     raise NotImplementedError
 
         # Matcher to assign box proposals to gt boxes
         self.proposal_matcher = Matcher(
@@ -453,9 +453,10 @@ class SMInstOutputs(object):
             # n_components predictions --> m*m mask predictions without sigmoid
             # as sigmoid function is combined in loss.
             mask_pred = self.mask_encoding.decoder(mask_pred, is_train=True)
-            mask_loss = self.mask_loss_func_mask(
+            mask_loss = F.mse_loss(
                 mask_pred,
-                mask_targets
+                mask_targets,
+                reduction='none'
             )
             mask_loss = mask_loss.sum(1) * ctrness_targets
             mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
@@ -463,46 +464,26 @@ class SMInstOutputs(object):
         if self.loss_on_code:
             # m*m mask labels --> n_components encoding labels
             mask_targets = self.mask_encoding.encoder(mask_targets)
-            if self.mask_loss_type == 'mse':
-                mask_loss = self.mask_loss_func(
+            if 'mse' in self.mask_loss_type:
+                mask_loss = F.mse_loss(
                     mask_pred,
-                    mask_targets
-                )
-                mask_loss = mask_loss.sum(1) * ctrness_targets
-                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
-                if self.mask_sparse_weight > 0.:
-                    if self.sparsity_loss_type == 'L1':
-                        sparsity_loss = torch.abs(mask_pred).sum(1) * ctrness_targets
-                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
-                        # sparsity_loss = 0.
-                        # for out in mask_tower_interm_outputs:
-                        #     _loss = torch.mean(out, 1) * ctrness_targets
-                        #     sparsity_loss += _loss.sum() / max(ctrness_norm, 1.0)
-                        mask_loss = mask_loss * self.mask_loss_weight + \
-                                    sparsity_loss * self.mask_sparse_weight
-                    elif self.sparsity_loss_type == 'KL':  # not in use
-                        kl_loss = kl_divergence(self.kl_rho, mask_pred) * ctrness_targets
-                        kl_loss = kl_loss.sum() / max(ctrness_norm, 1.0)
-                        # kl_loss = 0.
-                        # # for out in mask_tower_interm_outputs:
-                        # print(mask_tower_interm_outputs.size())
-                        # _loss = kl_divergence(self.kl_rho, mask_tower_interm_outputs)  # * ctrness_targets
-                        # kl_loss += _loss.sum() / max(ctrness_norm, 1.0)
-                        mask_loss = mask_loss * self.mask_loss_weight + \
-                                    kl_loss * self.mask_sparse_weight
-                    else:
-                        raise NotImplementedError
-                total_mask_loss += mask_loss
-            elif self.mask_loss_type == 'smooth':
-                mask_loss = self.mask_loss_func(
-                    mask_pred,
-                    mask_targets
+                    mask_targets,
+                    reduction='none'
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                 total_mask_loss += mask_loss
-            elif self.mask_loss_type == 'cosine':
-                mask_loss = self.mask_loss_func(
+            if 'smooth' in self.mask_loss_type:
+                mask_loss = F.smooth_l1_loss(
+                    mask_pred,
+                    mask_targets,
+                    reduction='none'
+                )
+                mask_loss = mask_loss.sum(1) * ctrness_targets
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
+            if 'cosine' in self.mask_loss_type:
+                mask_loss = loss_cos_sim(
                     mask_pred,
                     mask_targets
                 )
