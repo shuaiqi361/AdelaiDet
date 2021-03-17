@@ -120,6 +120,7 @@ class SMInstOutputs(object):
         self.thresh_with_ctr = thresh_with_ctr
 
         self.loss_on_mask = cfg.MODEL.SMInst.LOSS_ON_MASK
+        self.loss_on_code = cfg.MODEL.SMInst.LOSS_ON_CODE
         self.mask_loss_type = cfg.MODEL.SMInst.MASK_LOSS_TYPE
         self.num_codes = cfg.MODEL.SMInst.NUM_CODE
         self.mask_size = cfg.MODEL.SMInst.MASK_SIZE
@@ -129,15 +130,15 @@ class SMInstOutputs(object):
         self.kl_rho = cfg.MODEL.SMInst.SPARSITY_KL_RHO
 
         if self.loss_on_mask:
-            self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
+            self.mask_loss_func_mask = nn.MSELoss(reduction="none")
         elif self.mask_loss_type == 'mse':
-            self.mask_loss_func = nn.MSELoss(reduction="none")
+            self.mask_loss_func_code = nn.MSELoss(reduction="none")
         elif self.mask_loss_type == 'cosine':
-            self.mask_loss_func = loss_cos_sim
+            self.mask_loss_func_code = loss_cos_sim
         elif self.mask_loss_type == 'kl':
-            self.mask_loss_func = loss_kl_div
+            self.mask_loss_func_code = loss_kl_div
         elif self.mask_loss_type == 'smooth':
-            self.mask_loss_func = smooth_l1_loss
+            self.mask_loss_func_code = smooth_l1_loss
         else:
             raise NotImplementedError
 
@@ -447,17 +448,19 @@ class SMInstOutputs(object):
             reduction="sum"
         ) / num_pos_avg
 
+        total_mask_loss = 0.
         if self.loss_on_mask:
             # n_components predictions --> m*m mask predictions without sigmoid
             # as sigmoid function is combined in loss.
             mask_pred = self.mask_encoding.decoder(mask_pred, is_train=True)
-            mask_loss = self.mask_loss_func(
+            mask_loss = self.mask_loss_func_mask(
                 mask_pred,
                 mask_targets
             )
             mask_loss = mask_loss.sum(1) * ctrness_targets
             mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-        else:
+            total_mask_loss += mask_loss
+        if self.loss_on_code:
             # m*m mask labels --> n_components encoding labels
             mask_targets = self.mask_encoding.encoder(mask_targets)
             if self.mask_loss_type == 'mse':
@@ -489,6 +492,7 @@ class SMInstOutputs(object):
                                     kl_loss * self.mask_sparse_weight
                     else:
                         raise NotImplementedError
+                total_mask_loss += mask_loss
             elif self.mask_loss_type == 'smooth':
                 mask_loss = self.mask_loss_func(
                     mask_pred,
@@ -496,6 +500,7 @@ class SMInstOutputs(object):
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
             elif self.mask_loss_type == 'cosine':
                 mask_loss = self.mask_loss_func(
                     mask_pred,
@@ -503,6 +508,7 @@ class SMInstOutputs(object):
                 )
                 mask_loss = mask_loss * ctrness_targets * self.num_codes
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
             elif self.mask_loss_type == 'kl':
                 mask_loss = self.mask_loss_func(
                     mask_pred,
@@ -510,6 +516,7 @@ class SMInstOutputs(object):
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
             else:
                 raise NotImplementedError
 
@@ -517,7 +524,7 @@ class SMInstOutputs(object):
             "loss_SMInst_cls": class_loss,
             "loss_SMInst_loc": reg_loss,
             "loss_SMInst_ctr": ctrness_loss,
-            "loss_SMInst_mask": mask_loss,
+            "loss_SMInst_mask": total_mask_loss,
         }
         return losses, {}
 

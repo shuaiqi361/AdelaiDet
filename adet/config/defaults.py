@@ -335,7 +335,7 @@ _C.MODEL.SMInst.USE_GCN_IN_MASK = False
 _C.MODEL.SMInst.GCN_KERNEL_SIZE = 9
 # Whether to compute loss on original mask (binary mask).
 _C.MODEL.SMInst.LOSS_ON_MASK = False
-_C.MODEL.SMInst.LOSS_ON_SHAPE = False
+_C.MODEL.SMInst.LOSS_ON_CODE = True
 
 
 # ---------------------------------------------------------------------------- #
