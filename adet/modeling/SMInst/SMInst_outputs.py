@@ -491,7 +491,7 @@ class SMInstOutputs(object):
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                 total_mask_loss += mask_loss
             elif self.mask_loss_type == 'kl':
-                mask_loss = self.mask_loss_func(
+                mask_loss = self.mask_loss_func_code(
                     mask_pred,
                     mask_targets
                 )

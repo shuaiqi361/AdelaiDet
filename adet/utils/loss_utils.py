@@ -38,7 +38,7 @@ def loss_cos_sim(true, pred):
     # cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
     # output = cos(true, pred)
     output = F.cosine_similarity(true, pred, dim=-1, eps=1e-6)
-    return output
+    return 1 - output
 
 
 def loss_kl_div(true, pred):
