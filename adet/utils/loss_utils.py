@@ -15,7 +15,7 @@ def kl_divergence(rho, rho_hat):
     return rho * torch.log(rho / rho_hat) + (1 - rho) * torch.log((1 - rho) / (1 - rho_hat))
 
 
-def huber(true, pred, delta, reduction="none"):
+def huber(pred, true, delta, reduction="none"):
     loss = np.where(torch.abs(true - pred) < delta, 0.5 * ((true - pred) ** 2),
                     delta * torch.abs(true - pred) - 0.5 * (delta ** 2))
     if reduction == 'none':
@@ -25,7 +25,7 @@ def huber(true, pred, delta, reduction="none"):
 
 
 # log cosh loss
-def logcosh(true, pred, reduction="none"):
+def logcosh(pred, true, reduction="none"):
     loss = torch.log(torch.cosh(pred - true))
     if reduction == 'none':
         return loss
@@ -33,7 +33,7 @@ def logcosh(true, pred, reduction="none"):
         return torch.sum(loss)
 
 
-def loss_cos_sim(true, pred):
+def loss_cos_sim(pred, true):
     # minimize average cosine similarity
     # cos = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
     # output = cos(true, pred)
@@ -41,7 +41,7 @@ def loss_cos_sim(true, pred):
     return 1 - output
 
 
-def loss_kl_div(true, pred):
+def loss_kl_div(pred, true):
     # output = F.kl_div(torch.sigmoid(true), torch.sigmoid(pred))
     # rho = torch.sigmoid(true)
     # rho_hat = torch.sigmoid(pred)
@@ -54,6 +54,6 @@ def loss_kl_div(true, pred):
     return kl_div
 
 
-def smooth_l1_loss(pred, target):
-    loss = F.smooth_l1_loss(pred, target, reduction='none')
+def smooth_l1_loss(pred, true):
+    loss = F.smooth_l1_loss(pred, true, reduction='none')
     return loss
