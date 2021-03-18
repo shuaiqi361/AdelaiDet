@@ -55,9 +55,9 @@ def loss_kl_div_softmax(pred, true):
 
 
 def loss_kl_div_sigmoid(pred, true):
-    input_log_softmax = torch.log(torch.sigmoid(pred))
-    target_softmax = torch.sigmoid(true)
-    kl_div = F.kl_div(input_log_softmax, target_softmax, reduction='none')
+    input_log_sigmoid = F.logsigmoid(pred)
+    target_sigmoid = torch.sigmoid(true)
+    kl_div = F.kl_div(input_log_sigmoid, target_sigmoid, reduction='none')
 
     return kl_div
 
