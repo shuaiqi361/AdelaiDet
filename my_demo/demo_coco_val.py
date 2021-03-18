@@ -6,6 +6,9 @@ import os
 import time
 import cv2
 import tqdm
+import matplotlib.pyplot as plt
+from scipy.stats import kurtosis
+
 from pycocotools.coco import COCO
 from pycocotools import mask as cocomask
 from pycocotools.cocoeval import COCOeval
@@ -112,7 +115,8 @@ if __name__ == "__main__":
         start_time = time.time()
         predictions, visualized_output = demo.run_on_image(img)
         # print(predictions["instances"])
-        pred_codes.append(predictions["instances"].pred_codes.cpu().numpy())
+        codes_ = predictions["instances"].pred_codes.cpu().numpy()
+        pred_codes.append(codes_)
 
         logger.info(
             "{}: detected {} instances in {:.2f}s".format(
@@ -120,7 +124,14 @@ if __name__ == "__main__":
             )
         )
 
-        continue
+        # # plot histogram of codes
+        # fig = plt.figure()
+        # arr = plt.hist(codes_.reshape((-1,)).tolist(), bins=30, color='g', density=True)
+        # plt.rcParams.update({'font.size': 8})
+        # plt.xlabel('Sparse Codes')
+        # plt.xlabel('Counts')
+        # plt.title('Histogram of sparse codes')
+        # plt.show()
 
         if args.output:
             if os.path.isdir(args.output):
@@ -131,12 +142,16 @@ if __name__ == "__main__":
                 out_filename = args.output
             visualized_output.save(out_filename)
         else:
+            # continue
             cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
             print('image id: ', img_id)
             if cv2.waitKey() & 0xFF == ord('q'):
                 break
 
     pred_codes = np.concatenate(pred_codes, axis=0)
-    sparsity_counts = np.sum(np.abs(pred_codes) > 1e-4)
+    sparsity_counts = np.sum(np.abs(pred_codes) > 1e-2)
     num_obj, num_dim = pred_codes.shape
     print('Overall sparsity: ', sparsity_counts * 1. / (num_obj * num_dim))
+
+    kur = np.sum(kurtosis(pred_codes, axis=1, fisher=True, bias=False)) / num_obj
+    print('Overall Kurtosis: ', kur)
