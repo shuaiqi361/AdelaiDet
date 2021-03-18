@@ -41,7 +41,7 @@ def loss_cos_sim(pred, true):
     return 1 - output
 
 
-def loss_kl_div(pred, true):
+def loss_kl_div_softmax(pred, true):
     # output = F.kl_div(torch.sigmoid(true), torch.sigmoid(pred))
     # rho = torch.sigmoid(true)
     # rho_hat = torch.sigmoid(pred)
@@ -49,6 +49,14 @@ def loss_kl_div(pred, true):
 
     input_log_softmax = F.log_softmax(pred, dim=1)
     target_softmax = F.softmax(true, dim=1)
+    kl_div = F.kl_div(input_log_softmax, target_softmax, reduction='none')
+
+    return kl_div
+
+
+def loss_kl_div_sigmoid(pred, true):
+    input_log_softmax = torch.log(torch.sigmoid(pred))
+    target_softmax = torch.sigmoid(true)
     kl_div = F.kl_div(input_log_softmax, target_softmax, reduction='none')
 
     return kl_div

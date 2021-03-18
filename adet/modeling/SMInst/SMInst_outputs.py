@@ -14,7 +14,7 @@ from fvcore.nn import sigmoid_focal_loss_jit
 
 from adet.utils.comm import reduce_sum
 from adet.layers import ml_nms
-from adet.utils.loss_utils import loss_kl_div, loss_cos_sim, smooth_l1_loss
+from adet.utils.loss_utils import loss_kl_div_sigmoid, loss_kl_div_softmax, loss_cos_sim, smooth_l1_loss
 
 logger = logging.getLogger(__name__)
 
@@ -490,8 +490,16 @@ class SMInstOutputs(object):
                 mask_loss = mask_loss * ctrness_targets * self.num_codes
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                 total_mask_loss += mask_loss
-            if 'kl' in self.mask_loss_type:
-                mask_loss = loss_kl_div(
+            if 'kl_softmax' in self.mask_loss_type:
+                mask_loss = loss_kl_div_softmax(
+                    mask_pred,
+                    mask_targets_
+                )
+                mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
+            elif 'kl_sigmoid' in self.mask_loss_type:
+                mask_loss = loss_kl_div_sigmoid(
                     mask_pred,
                     mask_targets_
                 )
