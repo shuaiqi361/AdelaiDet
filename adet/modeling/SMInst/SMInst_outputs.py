@@ -620,6 +620,7 @@ class SMInstOutputs(object):
         num_images = len(boxlists)
         for i in range(num_images):
             per_image_masks = boxlists[i].pred_masks
+            boxlists[i].pred_codes = per_image_masks
             per_image_masks = self.mask_encoding.decoder(per_image_masks, is_train=False)
             per_image_masks = per_image_masks.view(-1, 1, self.mask_size, self.mask_size)
             boxlists[i].pred_masks = per_image_masks

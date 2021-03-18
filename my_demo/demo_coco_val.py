@@ -61,7 +61,7 @@ def get_parser():
     parser.add_argument(
         "--confidence-threshold",
         type=float,
-        default=0.5,
+        default=0.4,
         help="Minimum score for instance predictions to be shown",
     )
     parser.add_argument(
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     demo = VisualizationDemo(cfg)
 
     # Loading COCO validation images
-    args.data_type = 'test2017'
+    args.data_type = 'val2017'
     # annotation_file = '{}/annotations/instances_{}.json'.format(args.coco_path, args.data_type)
     if 'test' not in args.data_type:
         annotation_file = '{}/annotations/instances_{}.json'.format(args.coco_path, args.data_type)
@@ -95,6 +95,7 @@ if __name__ == "__main__":
 
     coco = COCO(annotation_file)
     imgIds = coco.getImgIds()
+    pred_codes = []
 
     for img_id in imgIds:
         img = coco.loadImgs(img_id)[0]
@@ -110,11 +111,16 @@ if __name__ == "__main__":
         img = read_image(image_path, format="BGR")
         start_time = time.time()
         predictions, visualized_output = demo.run_on_image(img)
+        # print(predictions["instances"])
+        pred_codes.append(predictions["instances"].pred_codes.cpu().numpy())
+
         logger.info(
             "{}: detected {} instances in {:.2f}s".format(
                 image_path, len(predictions["instances"]), time.time() - start_time
             )
         )
+
+        continue
 
         if args.output:
             if os.path.isdir(args.output):
@@ -129,3 +135,8 @@ if __name__ == "__main__":
             print('image id: ', img_id)
             if cv2.waitKey() & 0xFF == ord('q'):
                 break
+
+    pred_codes = np.concatenate(pred_codes, axis=0)
+    sparsity_counts = np.sum(np.abs(pred_codes) > 1e-4)
+    num_obj, num_dim = pred_codes.shape
+    print('Overall sparsity: ', sparsity_counts * 1. / (num_obj * num_dim))
