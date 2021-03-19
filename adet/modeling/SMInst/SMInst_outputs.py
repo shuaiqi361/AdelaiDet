@@ -472,6 +472,12 @@ class SMInstOutputs(object):
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                if self.mask_sparse_weight > 0.:
+                    if self.sparsity_loss_type == 'L1':
+                        sparsity_loss = torch.sum(torch.abs(mask_pred), 1) * ctrness_targets
+                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + \
+                                    sparsity_loss * self.mask_sparse_weight
                 total_mask_loss += mask_loss
             if 'smooth' in self.mask_loss_type:
                 mask_loss = F.smooth_l1_loss(
