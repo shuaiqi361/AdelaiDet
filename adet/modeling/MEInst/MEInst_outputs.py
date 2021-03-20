@@ -34,13 +34,13 @@ Naming convention:
     reg_targets: refers to the 4-d (left, top, right, bottom) distances that parameterize the ground-truth box.
 
     logits_pred: predicted classification scores in [-inf, +inf];
-    
-    reg_pred: the predicted (left, top, right, bottom), corresponding to reg_targets 
+
+    reg_pred: the predicted (left, top, right, bottom), corresponding to reg_targets
 
     ctrness_pred: predicted centerness scores
-    
+
     mask_regression: the predicted mask coefficients (D)
-    
+
 """
 
 
@@ -111,9 +111,6 @@ class MEInstOutputs(object):
         self.mask_loss_type = cfg.MODEL.MEInst.MASK_LOSS_TYPE
         self.dim_mask = cfg.MODEL.MEInst.DIM_MASK
         self.mask_size = cfg.MODEL.MEInst.MASK_SIZE
-        self.mask_sparse_weight = cfg.MODEL.MEInst.MASK_SPARSE_WEIGHT
-        self.mask_loss_weight = cfg.MODEL.MEInst.MASK_LOSS_WEIGHT
-        self.sparsity_loss_type = cfg.MODEL.MEInst.SPARSITY_LOSS_TYPE
 
         self.bce = nn.BCEWithLogitsLoss(reduction="none")
 
@@ -457,23 +454,23 @@ class MEInstOutputs(object):
                     reduction='none'
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
-                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.dim_mask, 1.0)
                 total_mask_loss += mask_loss
             if 'cosine' in self.mask_loss_type:
                 mask_loss = loss_cos_sim(
                     mask_pred,
                     mask_targets_
                 )
-                mask_loss = mask_loss * ctrness_targets * self.num_codes
-                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                mask_loss = mask_loss * ctrness_targets * self.dim_mask
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.dim_mask, 1.0)
                 total_mask_loss += mask_loss
             if 'kl_softmax' in self.mask_loss_type:
                 mask_loss = loss_kl_div_softmax(
                     mask_pred,
                     mask_targets_
                 )
-                mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
-                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                mask_loss = mask_loss.sum(1) * ctrness_targets * self.dim_mask
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.dim_mask, 1.0)
                 total_mask_loss += mask_loss
 
         losses = {

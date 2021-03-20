@@ -7,6 +7,7 @@ inference_test_output
 *.jpg
 *.png
 *.txt
+*.yaml
 
 # compilation and distribution
 __pycache__
