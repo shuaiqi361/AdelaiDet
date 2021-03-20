@@ -403,16 +403,15 @@ _C.MODEL.DTInst.NUM_MASK_CONVS = 4
 
 # The dim of mask before/after mask encoding.
 _C.MODEL.DTInst.MASK_SIZE = 28
+_C.MODEL.DTInst.NUM_CODE = 256
 _C.MODEL.DTInst.MASK_SPARSE_ALPHA = 0.1
 _C.MODEL.DTInst.MASK_SPARSE_WEIGHT = 0.0
 _C.MODEL.DTInst.MASK_LOSS_WEIGHT = 1.0
 _C.MODEL.DTInst.SPARSITY_LOSS_TYPE = 'L1'
-_C.MODEL.DTInst.SPARSITY_KL_RHO = 0.1
 
 # The dim for sparse shape encoding
 _C.MODEL.DTInst.NUM_VERTEX = 180
-_C.MODEL.DTInst.NUM_CODE = 64
-_C.MODEL.DTInst.POLYGON_SPARSE_ALPHA = 0.01
+_C.MODEL.DTInst.POLYGON_SPARSE_ALPHA = 0.30
 _C.MODEL.DTInst.MAX_ISTA_ITER = 80
 _C.MODEL.DTInst.DIST_TYPE = "L2"
 # The default path for parameters of mask encoding.
@@ -421,7 +420,7 @@ _C.MODEL.DTInst.PATH_DICTIONARY = "datasets/coco/components/" \
 # An indicator for encoding parameters loading during training.
 _C.MODEL.DTInst.FLAG_PARAMETERS = False
 # The loss for mask branch, can be mse now.
-_C.MODEL.DTInst.MASK_LOSS_TYPE = "mse"
+_C.MODEL.DTInst.MASK_LOSS_TYPE = ["mse", "cosine", "kl_softmax", "mask_mse", "hd"]
 _C.MODEL.DTInst.SHAPE_LOSS_TYPE = "piou"
 
 # Whether to use gcn in mask prediction.
@@ -430,4 +429,4 @@ _C.MODEL.DTInst.USE_GCN_IN_MASK = False
 _C.MODEL.DTInst.GCN_KERNEL_SIZE = 9
 # Whether to compute loss on original mask (binary mask).
 _C.MODEL.DTInst.LOSS_ON_MASK = False
-_C.MODEL.DTInst.LOSS_ON_SHAPE = False
+_C.MODEL.DTInst.LOSS_ON_CODE = True

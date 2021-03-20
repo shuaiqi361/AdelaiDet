@@ -14,6 +14,7 @@ from fvcore.nn import sigmoid_focal_loss_jit
 
 from adet.utils.comm import reduce_sum
 from adet.layers import ml_nms
+from adet.utils.loss_utils import loss_kl_div_softmax, loss_cos_sim, smooth_l1_loss
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,7 @@ class DTInstOutputs(object):
         self.thresh_with_ctr = thresh_with_ctr
 
         self.loss_on_mask = cfg.MODEL.DTInst.LOSS_ON_MASK
+        self.loss_on_code = cfg.MODEL.DTInst.LOSS_ON_CODE
         self.mask_loss_type = cfg.MODEL.DTInst.MASK_LOSS_TYPE
         self.num_codes = cfg.MODEL.DTInst.NUM_CODE
         self.mask_size = cfg.MODEL.DTInst.MASK_SIZE
@@ -126,16 +128,16 @@ class DTInstOutputs(object):
         self.sparsity_loss_type = cfg.MODEL.DTInst.SPARSITY_LOSS_TYPE
         self.kl_rho = cfg.MODEL.DTInst.SPARSITY_KL_RHO
 
-        if self.loss_on_mask:
-            self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
-        elif self.mask_loss_type == 'mse':
-            self.mask_loss_func = nn.MSELoss(reduction="none")
-        elif self.mask_loss_type == 'l1':
-            self.mask_loss_func = nn.L1Loss(reduction="none")
-        elif self.mask_loss_type == 'smoothl1':
-            self.mask_loss_func = nn.SmoothL1Loss(reduction="none")
-        else:
-            raise NotImplementedError
+        # if self.loss_on_mask:
+        #     self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
+        # elif self.mask_loss_type == 'mse':
+        #     self.mask_loss_func = nn.MSELoss(reduction="none")
+        # elif self.mask_loss_type == 'l1':
+        #     self.mask_loss_func = nn.L1Loss(reduction="none")
+        # elif self.mask_loss_type == 'smoothl1':
+        #     self.mask_loss_func = nn.SmoothL1Loss(reduction="none")
+        # else:
+        #     raise NotImplementedError
 
         # Matcher to assign box proposals to gt boxes
         self.proposal_matcher = Matcher(
@@ -440,45 +442,90 @@ class DTInstOutputs(object):
             reduction="sum"
         ) / num_pos_avg
 
+        total_mask_loss = 0.
+        dtm_pred_, binary_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)
+        code_targets, dtm_targets, weight_maps, hd_maps = self.mask_encoding.encoder(mask_targets)
         if self.loss_on_mask:
-            # n_components predictions --> m*m mask predictions without sigmoid
-            # as sigmoid function is combined in loss.
-            mask_pred = self.mask_encoding.decoder(mask_pred, is_train=True)
-            mask_loss = self.mask_loss_func(
-                mask_pred,
-                mask_targets
-            )
-            mask_loss = mask_loss.sum(1) * ctrness_targets
-            mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-        else:
+            if 'mask_mse' in self.mask_loss_type:
+                mask_loss = F.mse_loss(
+                    dtm_pred_,
+                    dtm_targets,
+                    reduction='none'
+                )
+                mask_loss = mask_loss.sum(1) * ctrness_targets
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                total_mask_loss += mask_loss
+            if 'weighted_mask_mse' in self.mask_loss_type:
+                mask_loss = F.mse_loss(
+                    dtm_pred_,
+                    dtm_targets,
+                    reduction='none'
+                )
+                mask_loss = torch.sum(mask_loss * weight_maps, 1) / torch.sum(weight_maps, 1) * ctrness_targets * self.mask_size ** 2
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                total_mask_loss += mask_loss
+            if 'hd' in self.mask_loss_type:
+                w_ = torch.abs(binary_pred_ - mask_targets)  # 1's are inconsistent pixels in hd_maps
+                hausdorff_loss = torch.sum(w_ * hd_maps, 1) / torch.sum(w_, 1) * ctrness_targets * self.mask_size ** 2
+                hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                total_mask_loss += hausdorff_loss
+        if self.loss_on_code:
             # m*m mask labels --> n_components encoding labels
-            mask_targets = self.mask_encoding.encoder(mask_targets)
-            if self.mask_loss_type == 'mse' or self.mask_loss_type == 'l1' or self.mask_loss_type == 'smoothl1':
-                mask_loss = self.mask_loss_func(
+            if 'mse' in self.mask_loss_type:
+                mask_loss = F.mse_loss(
                     mask_pred,
-                    mask_targets
+                    code_targets,
+                    reduction='none'
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                 if self.mask_sparse_weight > 0.:
                     if self.sparsity_loss_type == 'L1':
-                        sparsity_loss = torch.abs(mask_pred).sum(1) * ctrness_targets
+                        sparsity_loss = torch.sum(torch.abs(mask_pred), 1) * ctrness_targets
                         sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
-                        mask_loss = mask_loss * self.mask_loss_weight + sparsity_loss * self.mask_sparse_weight
-                    elif self.sparsity_loss_type == 'KL':
-                        kl_loss = kl_divergence(self.kl_rho, mask_pred) * ctrness_targets
-                        kl_loss = kl_loss.sum() / max(ctrness_norm, 1.0)
-                        mask_loss = mask_loss * self.mask_loss_weight + kl_loss * self.mask_sparse_weight
+                        mask_loss = mask_loss * self.mask_loss_weight + \
+                                    sparsity_loss * self.mask_sparse_weight
+                    elif self.sparsity_loss_type == 'weighted_L1':
+                        w_ = (torch.abs(code_targets) < 1e-4) * 1.  # inactive codes, put L1 regularization on them
+                        sparsity_loss = torch.sum(torch.abs(mask_pred) * w_, 1) / torch.sum(w_, 1) \
+                                        * ctrness_targets * self.num_codes
+                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + \
+                                    sparsity_loss * self.mask_sparse_weight
                     else:
                         raise NotImplementedError
-            else:
-                raise NotImplementedError
+                total_mask_loss += mask_loss
+            if 'smooth' in self.mask_loss_type:
+                mask_loss = F.smooth_l1_loss(
+                    mask_pred,
+                    code_targets,
+                    reduction='none'
+                )
+                mask_loss = mask_loss.sum(1) * ctrness_targets
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
+            if 'cosine' in self.mask_loss_type:
+                mask_loss = loss_cos_sim(
+                    mask_pred,
+                    code_targets
+                )
+                mask_loss = mask_loss * ctrness_targets * self.num_codes
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
+            if 'kl_softmax' in self.mask_loss_type:
+                mask_loss = loss_kl_div_softmax(
+                    mask_pred,
+                    code_targets
+                )
+                mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
 
         losses = {
             "loss_DTInst_cls": class_loss,
             "loss_DTInst_loc": reg_loss,
             "loss_DTInst_ctr": ctrness_loss,
-            "loss_DTInst_mask": mask_loss,
+            "loss_DTInst_mask": total_mask_loss
         }
         return losses, {}
 

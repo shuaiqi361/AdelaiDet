@@ -3,7 +3,8 @@ import torch
 import torch.nn as nn
 import cv2
 from .DTE import fast_ista, prepare_distance_transform_from_mask, \
-    prepare_overlay_DTMs_from_mask, prepare_extended_DTMs_from_mask, prepare_augmented_distance_transform_from_mask
+    prepare_overlay_DTMs_from_mask, prepare_extended_DTMs_from_mask, prepare_augmented_distance_transform_from_mask, \
+    prepare_distance_transform_from_mask_with_weights
 
 
 @torch.no_grad()
@@ -47,11 +48,12 @@ class DistanceTransformEncoding(nn.Module):
         
         # X_t = prepare_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
         # X_t = prepare_overlay_DTMs_from_mask(X, self.mask_size, dist_type=self.dist_type)
-        X_t = prepare_augmented_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        # X_t = prepare_augmented_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        X_t, weight_maps, hd_maps = prepare_distance_transform_from_mask_with_weights(X, self.mask_size, dist_type=self.dist_type)
 
         X_transformed = fast_ista(X_t, self.dictionary, lmbda=self.sparse_alpha, max_iter=self.max_iter)
 
-        return X_transformed
+        return X_transformed, X_t, weight_maps, hd_maps
 
     def decoder(self, X, is_train=False):
         """
@@ -73,10 +75,10 @@ class DistanceTransformEncoding(nn.Module):
         X_transformed = torch.matmul(X, self.dictionary)
 
         if is_train:
-            X_transformed_img = X_transformed + 0.9 >= 0.5
+            X_transformed_img = X_transformed + 0.85 > 0.5  # the predicted binary mask
             return X_transformed, X_transformed_img
         else:
-            X_transformed = torch.clamp(X_transformed + 0.9, min=0.01, max=0.99)  # for normal DTM
+            X_transformed = torch.clamp(X_transformed + 0.85, min=0.01, max=0.99)  # for normal DTM
             # X_transformed = torch.clamp(X_transformed + 0.65, min=0.01, max=0.99)  # for augmented DTM with contour emphasis
             # X_transformed = torch.clamp(X_transformed - 0.1, min=0.01, max=0.99)
 

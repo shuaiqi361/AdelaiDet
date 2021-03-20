@@ -116,20 +116,25 @@ def prepare_distance_transform_from_mask_with_weights(masks, mask_size, kernel=5
     masks = masks.astype(np.uint8)
     DTMs = []
     weight_maps = []
+    HD_maps = []
     for m in masks:
         dist_m = cv2.distanceTransform(m, distanceType=dist_type, maskSize=kernel)
         dist_m = dist_m / np.max(dist_m)  # basic dtms in (0, 1)
         weight_map = np.where(dist_m > 0, 1 + weighting - dist_m, weighting).astype(np.float32)
         dist_map = np.where(dist_m > 0, dist_m, -1).astype(np.float32)  # DTM in (-1, 0-1)
+        hd_map = np.where(dist_m > 0, dist_m, 0.1).astype(np.float32)
         weight_maps.append(weight_map.reshape((1, -1)))
         DTMs.append(dist_map.reshape((1, -1)))
+        HD_maps.append(hd_map.reshape((1, -1)))
 
     DTMs = np.concatenate(DTMs, axis=0)
     weight_maps = np.concatenate(weight_maps, axis=0)
+    HD_maps = np.concatenate(HD_maps, axis=0)
     DTMs = torch.from_numpy(DTMs).to(torch.float32).to(device)
     weight_maps = torch.from_numpy(weight_maps).to(torch.float32).to(device)
+    HD_maps = torch.from_numpy(HD_maps).to(torch.float32).to(device)
 
-    return DTMs, weight_maps
+    return DTMs, weight_maps, HD_maps
 
 
 def prepare_augmented_distance_transform_from_mask(masks, mask_size, kernel=3, dist_type=cv2.DIST_L2):
