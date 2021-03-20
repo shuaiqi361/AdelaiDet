@@ -478,7 +478,7 @@ class MEInstOutputs(object):
             "loss_MEInst_cls": class_loss,
             "loss_MEInst_loc": reg_loss,
             "loss_MEInst_ctr": ctrness_loss,
-            "loss_MEInst_mask": mask_loss,
+            "loss_MEInst_mask": total_mask_loss,
         }
         return losses, {}
 
