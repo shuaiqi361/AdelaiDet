@@ -152,7 +152,7 @@ _C.MODEL.MEInst.SIZES_OF_INTEREST = [64, 128, 256, 512]
 _C.MODEL.MEInst.USE_RELU = True
 _C.MODEL.MEInst.USE_DEFORMABLE = False
 _C.MODEL.MEInst.LAST_DEFORMABLE = False
-_C.MODEL.MEInst.TYPE_DEFORMABLE = "DCNv1"  # or DCNv2.
+_C.MODEL.MEInst.TYPE_DEFORMABLE = "DCNv2"  # or DCNv2.
 
 # the number of convolutions used in the cls and bbox tower
 _C.MODEL.MEInst.NUM_CLS_CONVS = 4
@@ -184,13 +184,14 @@ _C.MODEL.MEInst.NUM_MASK_CONVS = 4
 # The dim of mask before/after mask encoding.
 _C.MODEL.MEInst.DIM_MASK = 60
 _C.MODEL.MEInst.MASK_SIZE = 28
+_C.MODEL.MEInst.MASK_LOSS_WEIGHT = 1.0
 # The default path for parameters of mask encoding.
 _C.MODEL.MEInst.PATH_COMPONENTS = "datasets/coco/components/" \
                                    "coco_2017_train_class_agnosticTrue_whitenTrue_sigmoidTrue_60.npz"
 # An indicator for encoding parameters loading during training.
 _C.MODEL.MEInst.FLAG_PARAMETERS = False
 # The loss for mask branch, can be mse now.
-_C.MODEL.MEInst.MASK_LOSS_TYPE = "mse"
+_C.MODEL.MEInst.MASK_LOSS_TYPE = ["mse", "cosine", "kl_softmax"]
 
 # Whether to use gcn in mask prediction.
 # Large Kernel Matters -- https://arxiv.org/abs/1703.02719
@@ -198,6 +199,7 @@ _C.MODEL.MEInst.USE_GCN_IN_MASK = False
 _C.MODEL.MEInst.GCN_KERNEL_SIZE = 9
 # Whether to compute loss on original mask (binary mask).
 _C.MODEL.MEInst.LOSS_ON_MASK = False
+_C.MODEL.MEInst.LOSS_ON_CODE = True
 
 # ---------------------------------------------------------------------------- #
 # CondInst Options
@@ -312,7 +314,7 @@ _C.MODEL.SMInst.MASK_SIZE = 28
 _C.MODEL.SMInst.MASK_SPARSE_ALPHA = 0.1
 _C.MODEL.SMInst.MASK_SPARSE_WEIGHT = 0.0
 _C.MODEL.SMInst.MASK_LOSS_WEIGHT = 1.0
-_C.MODEL.SMInst.SPARSITY_LOSS_TYPE = 'KL'
+_C.MODEL.SMInst.SPARSITY_LOSS_TYPE = 'L1'
 _C.MODEL.SMInst.SPARSITY_KL_RHO = 0.05
 
 # The dim for sparse shape encoding

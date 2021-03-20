@@ -14,7 +14,7 @@ from fvcore.nn import sigmoid_focal_loss_jit
 
 from adet.utils.comm import reduce_sum
 from adet.layers import ml_nms
-
+from adet.utils.loss_utils import loss_kl_div_sigmoid, loss_kl_div_softmax, loss_cos_sim
 
 logger = logging.getLogger(__name__)
 
@@ -107,15 +107,22 @@ class MEInstOutputs(object):
         self.thresh_with_ctr = thresh_with_ctr
 
         self.loss_on_mask = cfg.MODEL.MEInst.LOSS_ON_MASK
+        self.loss_on_code = cfg.MODEL.MEInst.LOSS_ON_CODE
         self.mask_loss_type = cfg.MODEL.MEInst.MASK_LOSS_TYPE
         self.dim_mask = cfg.MODEL.MEInst.DIM_MASK
         self.mask_size = cfg.MODEL.MEInst.MASK_SIZE
-        if self.loss_on_mask:
-            self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
-        elif self.mask_loss_type == 'mse':
-            self.mask_loss_func = nn.MSELoss(reduction="none")
-        else:
-            raise NotImplementedError
+        self.mask_sparse_weight = cfg.MODEL.MEInst.MASK_SPARSE_WEIGHT
+        self.mask_loss_weight = cfg.MODEL.MEInst.MASK_LOSS_WEIGHT
+        self.sparsity_loss_type = cfg.MODEL.MEInst.SPARSITY_LOSS_TYPE
+
+        self.bce = nn.BCEWithLogitsLoss(reduction="none")
+
+        # if self.loss_on_mask:
+        #     self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
+        # elif self.mask_loss_type == 'mse':
+        #     self.mask_loss_func = nn.MSELoss(reduction="none")
+        # else:
+        #     raise NotImplementedError
 
         # Matcher to assign box proposals to gt boxes
         self.proposal_matcher = Matcher(
@@ -420,28 +427,54 @@ class MEInstOutputs(object):
             reduction="sum"
         ) / num_pos_avg
 
+        total_mask_loss = 0.
         if self.loss_on_mask:
             # n_components predictions --> m*m mask predictions without sigmoid
             # as sigmoid function is combined in loss.
-            mask_pred = self.mask_encoding.decoder(mask_pred, is_train=True)
-            mask_loss = self.mask_loss_func(
-                mask_pred,
+            mask_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)
+            mask_loss = self.bce(
+                mask_pred_,
                 mask_targets
             )
             mask_loss = mask_loss.sum(1) * ctrness_targets
             mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-        else:
+            total_mask_loss += mask_loss
+        if self.loss_on_code:
             # m*m mask labels --> n_components encoding labels
-            mask_targets = self.mask_encoding.encoder(mask_targets)
+            mask_targets_ = self.mask_encoding.encoder(mask_targets)
             if self.mask_loss_type == 'mse':
-                mask_loss = self.mask_loss_func(
+                mask_loss = F.mse_loss(
                     mask_pred,
-                    mask_targets
+                    mask_targets_,
+                    reduction='none'
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.dim_mask, 1.0)
-            else:
-                raise NotImplementedError
+            if 'smooth' in self.mask_loss_type:
+                mask_loss = F.smooth_l1_loss(
+                    mask_pred,
+                    mask_targets_,
+                    reduction='none'
+                )
+                mask_loss = mask_loss.sum(1) * ctrness_targets
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
+            if 'cosine' in self.mask_loss_type:
+                mask_loss = loss_cos_sim(
+                    mask_pred,
+                    mask_targets_
+                )
+                mask_loss = mask_loss * ctrness_targets * self.num_codes
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
+            if 'kl_softmax' in self.mask_loss_type:
+                mask_loss = loss_kl_div_softmax(
+                    mask_pred,
+                    mask_targets_
+                )
+                mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
 
         losses = {
             "loss_MEInst_cls": class_loss,
