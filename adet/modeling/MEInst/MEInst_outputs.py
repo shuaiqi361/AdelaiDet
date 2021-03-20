@@ -447,6 +447,7 @@ class MEInstOutputs(object):
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.dim_mask, 1.0)
+                total_mask_loss += mask_loss
             if 'smooth' in self.mask_loss_type:
                 mask_loss = F.smooth_l1_loss(
                     mask_pred,
