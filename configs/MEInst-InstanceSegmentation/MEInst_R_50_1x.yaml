@@ -6,9 +6,9 @@ MODEL:
   MEInst:
     DIM_MASK: 60
     MASK_SIZE: 28
-    LOSS_ON_MASK: True
+    LOSS_ON_MASK: False
     LOSS_ON_CODE: True
-    MASK_LOSS_TYPE: ['mse', 'cosine']
+    MASK_LOSS_TYPE: ['mse', 'cosine', 'kl_softmax']
     USE_DEFORMABLE: False
     LAST_DEFORMABLE: False
     TYPE_DEFORMABLE: "DCNv2"
