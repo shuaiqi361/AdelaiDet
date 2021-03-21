@@ -75,10 +75,10 @@ class DistanceTransformEncoding(nn.Module):
         X_transformed = torch.matmul(X, self.dictionary)
 
         if is_train:
-            X_transformed_img = X_transformed + 0.85 > 0.5  # the predicted binary mask
+            X_transformed_img = X_transformed + 0.9 > 0.5  # the predicted binary mask
             return X_transformed, X_transformed_img
         else:
-            X_transformed = torch.clamp(X_transformed + 0.85, min=0.01, max=0.99)  # for normal DTM
+            X_transformed = torch.clamp(X_transformed + 0.9, min=0.01, max=0.99)  # for normal DTM
             # X_transformed = torch.clamp(X_transformed + 0.65, min=0.01, max=0.99)  # for augmented DTM with contour emphasis
             # X_transformed = torch.clamp(X_transformed - 0.1, min=0.01, max=0.99)
 
