@@ -126,7 +126,7 @@ class DTInstOutputs(object):
         self.mask_sparse_weight = cfg.MODEL.DTInst.MASK_SPARSE_WEIGHT
         self.mask_loss_weight = cfg.MODEL.DTInst.MASK_LOSS_WEIGHT
         self.sparsity_loss_type = cfg.MODEL.DTInst.SPARSITY_LOSS_TYPE
-        self.kl_rho = cfg.MODEL.DTInst.SPARSITY_KL_RHO
+        # self.kl_rho = cfg.MODEL.DTInst.SPARSITY_KL_RHO
 
         # if self.loss_on_mask:
         #     self.mask_loss_func = nn.BCEWithLogitsLoss(reduction="none")
