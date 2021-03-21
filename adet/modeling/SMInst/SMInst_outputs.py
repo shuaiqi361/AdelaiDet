@@ -485,6 +485,13 @@ class SMInstOutputs(object):
                         sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                         mask_loss = mask_loss * self.mask_loss_weight + \
                                     sparsity_loss * self.mask_sparse_weight
+                    elif self.sparsity_loss_type == 'weighted_L2':
+                        w_ = (torch.abs(mask_targets_) < 1e-4) * 1.  # inactive codes, put L2 regularization on them
+                        sparsity_loss = torch.sum(mask_pred ** 2. * w_, 1) / torch.sum(w_, 1) \
+                                        * ctrness_targets * self.num_codes
+                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + \
+                                    sparsity_loss * self.mask_sparse_weight
                     else:
                         raise NotImplementedError
                 total_mask_loss += mask_loss
