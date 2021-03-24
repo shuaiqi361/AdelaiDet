@@ -465,8 +465,8 @@ class DTInstOutputs(object):
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
                 total_mask_loss += mask_loss
             if 'hd' in self.mask_loss_type:
-                w_ = torch.abs(binary_pred_ - mask_targets)  # 1's are inconsistent pixels in hd_maps
-                hausdorff_loss = torch.sum(w_ * hd_maps, 1) / torch.sum(w_, 1) * ctrness_targets * self.mask_size ** 2
+                w_ = torch.abs(binary_pred_ * 1. - mask_targets * 1)  # 1's are inconsistent pixels in hd_maps
+                hausdorff_loss = torch.sum(w_ * hd_maps, 1) / (torch.sum(w_, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
                 hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
                 total_mask_loss += hausdorff_loss
         if self.loss_on_code:
