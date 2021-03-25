@@ -182,7 +182,7 @@ if __name__ == "__main__":
             if _id == 3:  # cars
                 result["category_id"] = 1
             elif _id == 6:  # buses
-                result["category_id"] = 2
+                result["category_id"] = 1
             elif _id == 8:  # trucks
                 result["category_id"] = 2
             else:

@@ -20,6 +20,7 @@ dist/
 experiments/
 datasets/
 configs/
+my_demo/
 
 # pytorch/python/numpy formats
 *.pth
