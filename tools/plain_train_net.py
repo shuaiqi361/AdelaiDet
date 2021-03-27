@@ -27,7 +27,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer, PeriodicCheckpointer
-from detectron2.config import get_cfg
+# from detectron2.config import get_cfg
 from detectron2.data import (
     MetadataCatalog,
     build_detection_test_loader,
@@ -54,6 +54,11 @@ from detectron2.utils.events import (
     JSONWriter,
     TensorboardXWriter,
 )
+
+from adet.data.dataset_mapper import DatasetMapperWithBasis
+from adet.config import get_cfg
+from adet.checkpoint import AdetCheckpointer
+from adet.evaluation import TextEvaluator
 
 logger = logging.getLogger("detectron2")
 
@@ -128,7 +133,10 @@ def do_train(cfg, model, resume=False):
     optimizer = build_optimizer(cfg, model)
     scheduler = build_lr_scheduler(cfg, optimizer)
 
-    checkpointer = DetectionCheckpointer(
+    # checkpointer = DetectionCheckpointer(
+    #     model, cfg.OUTPUT_DIR, optimizer=optimizer, scheduler=scheduler
+    # )
+    checkpointer = AdetCheckpointer(
         model, cfg.OUTPUT_DIR, optimizer=optimizer, scheduler=scheduler
     )
     start_iter = (
