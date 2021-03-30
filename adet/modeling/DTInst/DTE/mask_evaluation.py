@@ -70,7 +70,7 @@ if __name__ == "__main__":
         masks = masks.view(masks.shape[0], -1)  # a batch of masks: (N, 784)
         masks = masks.to(torch.float32)
         # dtms = prepare_distance_transform_from_mask(masks, mask_size)  # for learn DTMs minusone
-        dtms = prepare_augmented_distance_transform_from_mask(masks, mask_size)
+        # dtms = prepare_augmented_distance_transform_from_mask(masks, mask_size)
         # dtms = prepare_overlay_DTMs_from_mask(masks, mask_size)  # for learn DTMs overlay
         # dtms = prepare_extended_DTMs_from_mask(masks, mask_size)  # for learn DTMs extended, 0, 1 range
         dtms, _, _ = prepare_distance_transform_from_mask_with_weights(masks, mask_size)
@@ -85,6 +85,7 @@ if __name__ == "__main__":
         # eva.
         # dtms_rc = np.where(dtms_rc + 1 - 0.35 > 0.5, 1, 0)  # adjust the thresholding to binary masks
         dtms_rc = np.where(dtms_rc + 0.9 > 0.5, 1, 0)
+        # dtms_rc = np.where((dtms_rc + 1.) / 2 + 0.15 > 0.5, 1, 0)
         # dtms_rc = np.where(dtms_rc > 0.4, 1, 0)
         IoUevaluate.add_batch(dtms_rc, masks.numpy())
 

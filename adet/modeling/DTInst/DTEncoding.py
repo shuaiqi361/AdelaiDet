@@ -4,7 +4,7 @@ import torch.nn as nn
 import cv2
 from .DTE import fast_ista, prepare_distance_transform_from_mask, \
     prepare_overlay_DTMs_from_mask, prepare_extended_DTMs_from_mask, prepare_augmented_distance_transform_from_mask, \
-    prepare_distance_transform_from_mask_with_weights
+    prepare_distance_transform_from_mask_with_weights, tensor_to_dtm
 
 
 @torch.no_grad()
@@ -18,11 +18,16 @@ class DistanceTransformEncoding(nn.Module):
         self.cfg = cfg
         self.num_codes = cfg.MODEL.DTInst.NUM_CODE
         self.mask_size = cfg.MODEL.DTInst.MASK_SIZE
-        self.mask_weighting = cfg.MODEL.DTInst.MASK_WEIGHTING
+        self.fg_weighting = cfg.MODEL.DTInst.FOREGROUND_WEIGHTING
+        self.bg_weighting = cfg.MODEL.DTInst.BACKGROUND_WEIGHTING
         self.mask_bias = cfg.MODEL.DTInst.MASK_BIAS
         self.sparse_alpha = cfg.MODEL.DTInst.MASK_SPARSE_ALPHA
         self.max_iter = cfg.MODEL.DTInst.MAX_ISTA_ITER
         self.dictionary = nn.Parameter(torch.zeros(self.num_codes, self.mask_size ** 2), requires_grad=False)
+        # if 'hd_two_side_dtm' in self.mask_loss_type:
+        #     self.decode_dtm = True
+        # else:
+        #     self.decode_dtm = False
         if cfg.MODEL.DTInst.DIST_TYPE == 'L2':
             self.dist_type = cv2.DIST_L2
         elif cfg.MODEL.DTInst.DIST_TYPE == 'L1':
@@ -53,7 +58,8 @@ class DistanceTransformEncoding(nn.Module):
         # X_t = prepare_augmented_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
         X_t, weight_maps, hd_maps = prepare_distance_transform_from_mask_with_weights(X, self.mask_size,
                                                                                       dist_type=self.dist_type,
-                                                                                      weighting=self.mask_weighting,
+                                                                                      fg_weighting=self.fg_weighting,
+                                                                                      bg_weighting=self.bg_weighting,
                                                                                       mask_bias=self.mask_bias)
 
         X_transformed = fast_ista(X_t, self.dictionary, lmbda=self.sparse_alpha, max_iter=self.max_iter)
