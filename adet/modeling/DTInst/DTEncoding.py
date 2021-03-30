@@ -18,6 +18,8 @@ class DistanceTransformEncoding(nn.Module):
         self.cfg = cfg
         self.num_codes = cfg.MODEL.DTInst.NUM_CODE
         self.mask_size = cfg.MODEL.DTInst.MASK_SIZE
+        self.mask_weighting = cfg.MODEL.DTInst.MASK_WEIGHTING
+        self.mask_bias = cfg.MODEL.DTInst.MASK_BIAS
         self.sparse_alpha = cfg.MODEL.DTInst.MASK_SPARSE_ALPHA
         self.max_iter = cfg.MODEL.DTInst.MAX_ISTA_ITER
         self.dictionary = nn.Parameter(torch.zeros(self.num_codes, self.mask_size ** 2), requires_grad=False)
@@ -49,7 +51,10 @@ class DistanceTransformEncoding(nn.Module):
         # X_t = prepare_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
         # X_t = prepare_overlay_DTMs_from_mask(X, self.mask_size, dist_type=self.dist_type)
         # X_t = prepare_augmented_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
-        X_t, weight_maps, hd_maps = prepare_distance_transform_from_mask_with_weights(X, self.mask_size, dist_type=self.dist_type)
+        X_t, weight_maps, hd_maps = prepare_distance_transform_from_mask_with_weights(X, self.mask_size,
+                                                                                      dist_type=self.dist_type,
+                                                                                      weighting=self.mask_weighting,
+                                                                                      mask_bias=self.mask_bias)
 
         X_transformed = fast_ista(X_t, self.dictionary, lmbda=self.sparse_alpha, max_iter=self.max_iter)
 

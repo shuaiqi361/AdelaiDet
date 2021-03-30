@@ -99,10 +99,11 @@ def prepare_distance_transform_from_mask(masks, mask_size, kernel=3, dist_type=c
     return DTMs
 
 
-def prepare_distance_transform_from_mask_with_weights(masks, mask_size, kernel=5, dist_type=cv2.DIST_L2, weighting=0.8):
+def prepare_distance_transform_from_mask_with_weights(masks, mask_size, kernel=5, dist_type=cv2.DIST_L2, weighting=1.0, mask_bias=-0.1):
     """
     Given a set of masks as torch tensor, convert to numpy array, find distance transform maps from them,
     and convert DTMs back to torch tensor, a weight map with 1 - DTM will be returned(emphasizing boundary and thin parts)
+    :param mask_bias: bias set for the pixels outside the contour
     :param weighting: weighting for background pixels on the DTMs
     :param dist_type: used for distance transform
     :param kernel: kernel size for distance transforms
@@ -119,14 +120,14 @@ def prepare_distance_transform_from_mask_with_weights(masks, mask_size, kernel=5
     HD_maps = []
     for m in masks:
         dist_m = cv2.distanceTransform(m, distanceType=dist_type, maskSize=kernel)
-        dist_m_bg = cv2.distanceTransform(1 - m, distanceType=dist_type, maskSize=kernel)
+        # dist_m_bg = cv2.distanceTransform(1 - m, distanceType=dist_type, maskSize=kernel)
         dist_m = dist_m / max(np.max(dist_m), 1.)  # basic dtms in (0, 1)
-        dist_m_bg = dist_m_bg / max(np.max(dist_m_bg), 1.)
+        # dist_m_bg = dist_m_bg / max(np.max(dist_m_bg), 1.)
         weight_map = np.where(dist_m > 0, 1. + weighting - dist_m, weighting).astype(np.float32)
         dist_map = np.where(dist_m > 0, dist_m, -1).astype(np.float32)  # DTM in (-1, 0-1)
-        # hd_map = np.where(dist_m > 0, dist_m ** 2., -0.1).astype(np.float32)  # not sure why the best
+        hd_map = np.where(dist_m > 0, dist_m ** 2., mask_bias).astype(np.float32)  # not sure why the best
         # hd_map = np.where(dist_m > 0, dist_m ** 2., 0.01).astype(np.float32)
-        hd_map = np.where(dist_m > 0, dist_m ** 2, dist_m_bg ** 2 / 2.).astype(np.float32)
+        # hd_map = np.where(dist_m > 0, dist_m ** 2, dist_m_bg ** 2 / 2.).astype(np.float32)
         weight_maps.append(weight_map.reshape((1, -1)))
         DTMs.append(dist_map.reshape((1, -1)))
         HD_maps.append(hd_map.reshape((1, -1)))
