@@ -491,7 +491,7 @@ class DTInstOutputs(object):
                 total_mask_loss += hausdorff_loss
             if 'hd_two_side_dtm' in self.mask_loss_type:
                 dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
-                hausdorff_loss = torch.sum(dtm_diff * (dtm_pred_ ** 2 + dtm_targets ** 2), 1) * ctrness_targets
+                hausdorff_loss = torch.sum(dtm_diff * (torch.clamp(dtm_pred_, -1.1, 1.1) ** 2 + dtm_targets ** 2), 1) * ctrness_targets
                 hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
                 total_mask_loss += hausdorff_loss
             if 'contour_dice' in self.mask_loss_type:
