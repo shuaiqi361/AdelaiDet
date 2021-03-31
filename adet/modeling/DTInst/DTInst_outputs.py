@@ -474,14 +474,24 @@ class DTInstOutputs(object):
                 hausdorff_loss = torch.sum(w_ * hd_maps, 1) / (torch.sum(w_, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
                 hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
                 total_mask_loss += hausdorff_loss
-            if 'hd_one_side_dtm' in self.mask_loss_type:
+            if 'hd_weighted_one_side_dtm' in self.mask_loss_type:
                 dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
                 hausdorff_loss = torch.sum(dtm_diff * weight_maps * hd_maps, 1) / (torch.sum(weight_maps, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
                 hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
                 total_mask_loss += hausdorff_loss
-            if 'hd_two_side_dtm' in self.mask_loss_type:
+            if 'hd_weighted_two_side_dtm' in self.mask_loss_type:
                 dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
                 hausdorff_loss = torch.sum(dtm_diff * weight_maps * (dtm_pred_ ** 2 + dtm_targets ** 2), 1) / (torch.sum(weight_maps, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
+                hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                total_mask_loss += hausdorff_loss
+            if 'hd_one_side_dtm' in self.mask_loss_type:
+                dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
+                hausdorff_loss = torch.sum(dtm_diff * hd_maps, 1) * ctrness_targets
+                hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                total_mask_loss += hausdorff_loss
+            if 'hd_two_side_dtm' in self.mask_loss_type:
+                dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
+                hausdorff_loss = torch.sum(dtm_diff * (dtm_pred_ ** 2 + dtm_targets ** 2), 1) * ctrness_targets
                 hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
                 total_mask_loss += hausdorff_loss
             if 'contour_dice' in self.mask_loss_type:
