@@ -495,8 +495,10 @@ class DTInstOutputs(object):
                 hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
                 total_mask_loss += hausdorff_loss
             if 'contour_dice' in self.mask_loss_type:
-                pred_contour = 0.5 <= dtm_pred_ + 0.9 < 0.55  # contour pixels with 0.05 tolerance
-                target_contour = 0. <= dtm_targets < 0.05
+                pred_contour = (dtm_pred_ + 0.9 < 0.55) * 1. * (0.5 <= dtm_pred_ + 0.9)  # contour pixels with 0.05 tolerance
+                target_contour = (dtm_targets < 0.05) * 1. * (dtm_targets < 0.05)
+                # pred_contour = 0.5 <= dtm_pred_ + 0.9 < 0.55  # contour pixels with 0.05 tolerance
+                # target_contour = 0. <= dtm_targets < 0.05
                 overlap_ = torch.sum(pred_contour * 2. * target_contour, 1)
                 union_ = torch.sum(pred_contour ** 2, 1) + torch.sum(target_contour ** 2, 1)
                 dice_loss = (1. - overlap_ / (union_ + 1e-4)) * ctrness_targets * self.mask_size ** 2
