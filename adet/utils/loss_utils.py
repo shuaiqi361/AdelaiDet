@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import numpy as np
 
 
-def kl_divergence(rho, rho_hat):
+def kl_divergence(rho_hat, rho=0.5):
     """
     :param rho: desired average activity, should be small
     :param rho_hat: network pre-act outputs, sigmoid is applied in this function

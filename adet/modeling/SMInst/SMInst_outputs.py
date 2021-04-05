@@ -14,7 +14,7 @@ from fvcore.nn import sigmoid_focal_loss_jit
 
 from adet.utils.comm import reduce_sum
 from adet.layers import ml_nms
-from adet.utils.loss_utils import loss_kl_div_sigmoid, loss_kl_div_softmax, loss_cos_sim, smooth_l1_loss
+from adet.utils.loss_utils import loss_kl_div_sigmoid, loss_kl_div_softmax, loss_cos_sim, smooth_l1_loss, kl_divergence
 
 logger = logging.getLogger(__name__)
 
@@ -52,18 +52,6 @@ def compute_ctrness_targets(reg_targets):
     ctrness = (left_right.min(dim=-1)[0] / left_right.max(dim=-1)[0]) * \
               (top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0])
     return torch.sqrt(ctrness)
-
-
-def kl_divergence(rho, rho_hat):
-    """
-    :param rho: desired average activity, should be small
-    :param rho_hat: network pre-act outputs, sigmoid is applied in this function
-    :return:
-    """
-    rho_hat = torch.mean(torch.sigmoid(rho_hat), 1)  # sigmoid because we need the probability distributions
-    rho = torch.ones(size=rho_hat.size()) * rho
-    rho = rho.to(rho_hat.device)
-    return rho * torch.log(rho/rho_hat) + (1 - rho) * torch.log((1 - rho)/(1 - rho_hat))
 
 
 class SMInstOutputs(object):
@@ -452,15 +440,28 @@ class SMInstOutputs(object):
         if self.loss_on_mask:
             # n_components predictions --> m*m mask predictions without sigmoid
             # as sigmoid function is combined in loss.
-            mask_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)
-            mask_loss = F.mse_loss(
-                mask_pred_,
-                mask_targets,
-                reduction='none'
-            )
-            mask_loss = mask_loss.sum(1) * ctrness_targets
-            mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-            total_mask_loss += mask_loss
+            mask_pred_, mask_pred_bin = self.mask_encoding.decoder(mask_pred, is_train=True)
+
+            if 'mask_mse' in self.mask_loss_type:
+                mask_loss = F.mse_loss(
+                    mask_pred_,
+                    mask_targets,
+                    reduction='none'
+                )
+                mask_loss = mask_loss.sum(1) * ctrness_targets
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                total_mask_loss += mask_loss
+            if 'mask_iou' in self.mask_loss_type:
+                overlap_ = torch.sum(mask_pred_bin * 1. * mask_targets, 1)
+                union_ = torch.sum((mask_pred_bin + mask_targets) >= 1., 1)
+                iou_loss = (1. - overlap_ / (union_ + 1e-4)) * ctrness_targets * self.mask_size ** 2
+                iou_loss = iou_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                total_mask_loss += iou_loss
+            if 'mask_difference' in self.mask_loss_type:
+                w_ = torch.abs(mask_pred_bin * 1. - mask_targets * 1)  # 1's are inconsistent pixels in hd_maps
+                md_loss = torch.sum(w_, 1) * ctrness_targets
+                md_loss = md_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                total_mask_loss += md_loss
         if self.loss_on_code:
             # m*m mask labels --> n_components encoding labels
             mask_targets_ = self.mask_encoding.encoder(mask_targets)
@@ -478,16 +479,33 @@ class SMInstOutputs(object):
                         sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                         mask_loss = mask_loss * self.mask_loss_weight + \
                                     sparsity_loss * self.mask_sparse_weight
+                    elif self.sparsity_loss_type == 'L0':
+                        w_ = (torch.abs(mask_targets_) >= 1e-2) * 1.  # the number of codes that are active
+                        sparsity_loss = torch.sum(w_, 1) * ctrness_targets
+                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + \
+                                    sparsity_loss * self.mask_sparse_weight
                     elif self.sparsity_loss_type == 'weighted_L1':
-                        w_ = (torch.abs(mask_targets_) < 1e-4) * 1.  # inactive codes, put L1 regularization on them
+                        w_ = (torch.abs(mask_targets_) < 1e-2) * 1.  # inactive codes, put L1 regularization on them
                         sparsity_loss = torch.sum(torch.abs(mask_pred) * w_, 1) / torch.sum(w_, 1) \
                                         * ctrness_targets * self.num_codes
                         sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                         mask_loss = mask_loss * self.mask_loss_weight + \
                                     sparsity_loss * self.mask_sparse_weight
                     elif self.sparsity_loss_type == 'weighted_L2':
-                        w_ = (torch.abs(mask_targets_) < 1e-4) * 1.  # inactive codes, put L2 regularization on them
+                        w_ = (torch.abs(mask_targets_) < 1e-2) * 1.  # inactive codes, put L2 regularization on them
                         sparsity_loss = torch.sum(mask_pred ** 2. * w_, 1) / torch.sum(w_, 1) \
+                                        * ctrness_targets * self.num_codes
+                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + \
+                                    sparsity_loss * self.mask_sparse_weight
+                    elif self.sparsity_loss_type == 'weighted_KL':
+                        w_ = (torch.abs(mask_targets_) < 1e-2) * 1.  # inactive codes, put L2 regularization on them
+                        kl_ = kl_divergence(
+                            mask_pred,
+                            self.kl_rho
+                        )
+                        sparsity_loss = torch.sum(kl_ * w_, 1) / torch.sum(w_, 1) \
                                         * ctrness_targets * self.num_codes
                         sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                         mask_loss = mask_loss * self.mask_loss_weight + \
@@ -524,6 +542,14 @@ class SMInstOutputs(object):
                 mask_loss = loss_kl_div_sigmoid(
                     mask_pred,
                     mask_targets_
+                )
+                mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                total_mask_loss += mask_loss
+            elif 'kl' in self.mask_loss_type:
+                mask_loss = kl_divergence(
+                    mask_pred,
+                    self.kl_rho
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)

@@ -59,7 +59,8 @@ class SparseMaskEncoding(nn.Module):
         X_transformed = torch.matmul(X, self.dictionary)
 
         if is_train:
-            pass
+            X_transformed_img = X_transformed > 0.5  # the predicted binary mask
+            return X_transformed, X_transformed_img
         else:
             X_transformed = torch.clamp(X_transformed, min=0.01, max=0.99)
 
