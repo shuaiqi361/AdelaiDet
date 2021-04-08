@@ -183,6 +183,10 @@ class SMInstHead(nn.Module):
                                   cfg.MODEL.SMInst.USE_DEFORMABLE),
                         "mask": (cfg.MODEL.SMInst.NUM_MASK_CONVS,
                                  cfg.MODEL.SMInst.USE_DEFORMABLE)}
+        # head_configs = {"cls": (cfg.MODEL.SMInst.NUM_CLS_CONVS,
+        #                         cfg.MODEL.SMInst.USE_DEFORMABLE),
+        #                 "bbox": (cfg.MODEL.SMInst.NUM_BOX_CONVS,
+        #                          cfg.MODEL.SMInst.USE_DEFORMABLE)}
 
         self.type_deformable = cfg.MODEL.SMInst.TYPE_DEFORMABLE
         self.last_deformable = cfg.MODEL.SMInst.LAST_DEFORMABLE
@@ -275,6 +279,12 @@ class SMInstHead(nn.Module):
         else:
             self.scales = None
 
+        # for modules in [
+        #     self.cls_tower, self.bbox_tower,
+        #     self.share_tower, self.cls_logits,
+        #     self.bbox_pred, self.ctrness,
+        #     self.mask_pred
+        # ]:
         for modules in [
             self.cls_tower, self.bbox_tower,
             self.share_tower, self.cls_logits,
@@ -323,6 +333,8 @@ class SMInstHead(nn.Module):
 
             mask_tower = self.mask_tower(feature)
             mask_reg.append(self.mask_pred(mask_tower))
+
+            # mask_reg.append(self.mask_pred(cls_tower))
             # mask_tower_interm_outputs.append(mask_tower_interm_output)
 
         return logits, bbox_reg, ctrness, bbox_towers, mask_reg  #, mask_tower_interm_outputs

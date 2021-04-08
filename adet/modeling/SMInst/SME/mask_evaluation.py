@@ -27,12 +27,12 @@ def parse_args():
                         type=str)
     parser.add_argument('--dataset', default='coco_2017_val', type=str)
     parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/'
-                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n512_a0.50.npy',
+                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n384_a0.40.npy',
                         type=str)
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
-    parser.add_argument('--n_codes', default=512, type=int)
-    parser.add_argument('--mask_sparse_alpha', default=0.50, type=float)
+    parser.add_argument('--n_codes', default=384, type=int)
+    parser.add_argument('--mask_sparse_alpha', default=0.40, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     args = parser.parse_args()
     return args
@@ -92,5 +92,14 @@ if __name__ == "__main__":
 
     # calculate Kurtosis for predicted codes
     kurtosis_counts = np.concatenate(kurtosis_counts, axis=0)
+    abs_codes = kurtosis_counts ** 2.
     kur = np.sum(kurtosis(kurtosis_counts, axis=1, fisher=True, bias=False)) / len(kurtosis_counts)
     print('Overall Kurtosis: ', kur)
+
+    # calculate the variance explained by the top 60 codes
+    var_explained = []
+    for i in range(abs_codes.shape[0]):
+        t_ = np.sort(abs_codes[i])[::-1]
+        var_explained.append(np.sum(t_[:60]) / (np.sum(t_) + 1e-6))
+
+    print('Variance explained: ', np.mean(var_explained))

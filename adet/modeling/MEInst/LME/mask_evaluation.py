@@ -47,7 +47,8 @@ if __name__ == "__main__":
 
     cur_path = os.path.abspath(os.path.dirname(__file__))
     root_path = cur_path[:cur_path.find("AdelaiDet") + len("AdelaiDet")]
-    dataset_root = os.path.join(root_path, args.root)
+    # dataset_root = os.path.join(root_path, args.root)
+    dataset_root = '/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17'
     matrix_path = os.path.join(dataset_root, args.matrix)
 
     # load matrix.
@@ -57,6 +58,13 @@ if __name__ == "__main__":
     mean_c = parameters['mean_c']
     ratio_c = parameters['ratio_c']
     explained_variance_c = parameters['explained_variance_c']
+
+    # calculate the variance explained by the top-60 components
+    print(explained_variance_c, len(explained_variance_c[0]))
+    print(ratio_c, len(ratio_c[0]))
+    print('Total variance explained: ', np.sum(ratio_c[0]))
+    exit()
+
     if class_agnostic:
         components_c = np.squeeze(components_c)
         mean_c = np.squeeze(mean_c)
