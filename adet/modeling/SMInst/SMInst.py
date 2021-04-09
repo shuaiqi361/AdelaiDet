@@ -51,6 +51,7 @@ class SMInst(nn.Module):
         self.post_nms_topk_train  = cfg.MODEL.SMInst.POST_NMS_TOPK_TRAIN
         self.post_nms_topk_test   = cfg.MODEL.SMInst.POST_NMS_TOPK_TEST
         self.thresh_with_ctr      = cfg.MODEL.SMInst.THRESH_WITH_CTR
+        # self.thresh_with_active   = cfg.MODEL.SMInst.THRESH_WITH_ACTIVE
         # fmt: on
         self.iou_loss = IOULoss(cfg.MODEL.SMInst.LOC_LOSS_TYPE)
         # generate sizes of interest
@@ -81,7 +82,7 @@ class SMInst(nn.Module):
         """
         features = [features[f] for f in self.in_features]
         locations = self.compute_locations(features)
-        logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression = self.SMInst_head(features)
+        logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression, mask_activation = self.SMInst_head(features)
 
         if self.training:
             pre_nms_thresh = self.pre_nms_thresh_train
@@ -109,6 +110,7 @@ class SMInst(nn.Module):
             reg_pred,
             ctrness_pred,
             mask_regression,
+            mask_activation,
             self.mask_encoding,
             self.focal_loss_alpha,
             self.focal_loss_gamma,
@@ -274,22 +276,21 @@ class SMInstHead(nn.Module):
                 stride=1, padding=1
             )
 
+        self.mask_active = nn.Conv2d(
+            in_channels, self.num_codes, kernel_size=3,
+            stride=1, padding=1
+        )
+
         if cfg.MODEL.SMInst.USE_SCALE:
             self.scales = nn.ModuleList([Scale(init_value=1.0) for _ in self.fpn_strides])
         else:
             self.scales = None
 
-        # for modules in [
-        #     self.cls_tower, self.bbox_tower,
-        #     self.share_tower, self.cls_logits,
-        #     self.bbox_pred, self.ctrness,
-        #     self.mask_pred
-        # ]:
         for modules in [
             self.cls_tower, self.bbox_tower,
             self.share_tower, self.cls_logits,
             self.bbox_pred, self.ctrness,
-            self.mask_tower, self.mask_pred
+            self.mask_tower, self.mask_pred, self.mask_active
         ]:
             for l in modules.modules():
                 if isinstance(l, nn.Conv2d):
@@ -307,6 +308,7 @@ class SMInstHead(nn.Module):
         ctrness = []
         bbox_towers = []
         mask_reg = []
+        mask_active = []
         # mask_tower_interm_outputs = []
         for l, feature in enumerate(x):
             feature = self.share_tower(feature)
@@ -333,8 +335,10 @@ class SMInstHead(nn.Module):
 
             mask_tower = self.mask_tower(feature)
             mask_reg.append(self.mask_pred(mask_tower))
+            mask_active.append(self.mask_active(mask_tower))
 
             # mask_reg.append(self.mask_pred(cls_tower))
+            # mask_active.append(self.mask_active(cls_tower))
             # mask_tower_interm_outputs.append(mask_tower_interm_output)
 
-        return logits, bbox_reg, ctrness, bbox_towers, mask_reg  #, mask_tower_interm_outputs
+        return logits, bbox_reg, ctrness, bbox_towers, mask_reg, mask_active  #, mask_tower_interm_outputs

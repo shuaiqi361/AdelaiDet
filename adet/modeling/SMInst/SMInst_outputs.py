@@ -63,6 +63,7 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_regression,
+            mask_activation,
             mask_encoding,
             focal_loss_alpha,
             focal_loss_gamma,
@@ -87,6 +88,7 @@ class SMInstOutputs(object):
         self.locations = locations
         self.mask_regression = mask_regression
         self.mask_encoding = mask_encoding
+        self.mask_activation = mask_activation
         # self.mask_tower_interm_outputs = mask_tower_interm_outputs
 
         self.gt_instances = gt_instances
@@ -116,6 +118,8 @@ class SMInstOutputs(object):
         self.mask_loss_weight = cfg.MODEL.SMInst.MASK_LOSS_WEIGHT
         self.sparsity_loss_type = cfg.MODEL.SMInst.SPARSITY_LOSS_TYPE
         self.kl_rho = cfg.MODEL.SMInst.SPARSITY_KL_RHO
+
+        self.thresh_with_active = cfg.MODEL.SMInst.THRESH_WITH_ACTIVE
 
         # if self.loss_on_mask:
         #     self.mask_loss_func_mask = nn.MSELoss(reduction="none")
@@ -386,6 +390,7 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_pred,
+            mask_activation_pred,
             mask_targets
     ):
         num_classes = logits_pred.size(1)
@@ -415,6 +420,7 @@ class SMInstOutputs(object):
         reg_targets = reg_targets[pos_inds]
         ctrness_pred = ctrness_pred[pos_inds]
         mask_pred = mask_pred[pos_inds]
+        mask_activation_pred = mask_activation_pred[pos_inds]
 
         assert mask_pred.shape[0] == mask_targets.shape[0], \
             print("The number(positive) should be equal between "
@@ -436,12 +442,24 @@ class SMInstOutputs(object):
             reduction="sum"
         ) / num_pos_avg
 
+        mask_targets_ = self.mask_encoding.encoder(mask_targets)
+        mask_pred_, mask_pred_bin = self.mask_encoding.decoder(mask_pred, is_train=True)
+
+        # compute the loss for the activation code as binary classification
+        activation_targets = (torch.abs(mask_targets_) > 1e-4) * 1.
+        activation_loss = F.binary_cross_entropy_with_logits(
+            mask_activation_pred,
+            activation_targets,
+            reduction='none'
+        )
+        activation_loss = activation_loss.sum(1) * ctrness_targets
+        activation_loss = activation_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+
         total_mask_loss = 0.
         if self.loss_on_mask:
             # n_components predictions --> m*m mask predictions without sigmoid
             # as sigmoid function is combined in loss.
-            mask_pred_, mask_pred_bin = self.mask_encoding.decoder(mask_pred, is_train=True)
-
+            # mask_pred_, mask_pred_bin = self.mask_encoding.decoder(mask_pred, is_train=True)
             if 'mask_mse' in self.mask_loss_type:
                 mask_loss = F.mse_loss(
                     mask_pred_,
@@ -464,7 +482,7 @@ class SMInstOutputs(object):
                 total_mask_loss += md_loss
         if self.loss_on_code:
             # m*m mask labels --> n_components encoding labels
-            mask_targets_ = self.mask_encoding.encoder(mask_targets)
+            # mask_targets_ = self.mask_encoding.encoder(mask_targets)
             if 'mse' in self.mask_loss_type:
                 mask_loss = F.mse_loss(
                     mask_pred,
@@ -560,6 +578,7 @@ class SMInstOutputs(object):
             "loss_SMInst_loc": reg_loss,
             "loss_SMInst_ctr": ctrness_loss,
             "loss_SMInst_mask": total_mask_loss,
+            "loss_SMInst_activation": activation_loss,
         }
         return losses, {}
 
@@ -615,6 +634,13 @@ class SMInstOutputs(object):
                 for x in self.mask_regression
             ], dim=0, )
 
+        mask_activation_pred = cat(
+            [
+                # Reshape: (N, D, Hi, Wi) -> (N, Hi, Wi, D) -> (N*Hi*Wi, D)
+                x.permute(0, 2, 3, 1).reshape(-1, self.num_codes)
+                for x in self.mask_activation
+            ], dim=0, )
+
         # mask_tower_interm_outputs = []
         # for _outputs in self.mask_tower_interm_outputs:
         #     mask_tower_interm_output = cat(
@@ -639,16 +665,20 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_pred,
+            mask_activation_pred,
             mask_targets
         )
 
     def predict_proposals(self):
         sampled_boxes = []
 
+        if self.thresh_with_active:
+            self.mask_regression = self.mask_regression * (self.mask_activation > 0)
+
         bundle = (
             self.locations, self.logits_pred,
             self.reg_pred, self.ctrness_pred,
-            self.strides, self.mask_regression
+            self.strides, self.mask_regression,
         )
 
         for i, (l, o, r, c, s, mr) in enumerate(zip(*bundle)):

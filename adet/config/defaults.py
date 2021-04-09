@@ -271,6 +271,7 @@ _C.MODEL.SMInst.USE_SCALE = True
 # Multiply centerness before threshold
 # This will affect the final performance by about 0.05 AP but save some time
 _C.MODEL.SMInst.THRESH_WITH_CTR = True
+_C.MODEL.SMInst.THRESH_WITH_ACTIVE = False
 
 # Focal loss parameters
 _C.MODEL.SMInst.LOSS_ALPHA = 0.25
