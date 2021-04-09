@@ -672,19 +672,18 @@ class SMInstOutputs(object):
     def predict_proposals(self):
         sampled_boxes = []
 
-        if self.thresh_with_active:
-            self.mask_regression = self.mask_regression * (self.mask_activation > 0)
-
         bundle = (
             self.locations, self.logits_pred,
             self.reg_pred, self.ctrness_pred,
-            self.strides, self.mask_regression,
+            self.strides, self.mask_regression, self.mask_activation
         )
 
-        for i, (l, o, r, c, s, mr) in enumerate(zip(*bundle)):
+        for i, (l, o, r, c, s, mr, ma) in enumerate(zip(*bundle)):
             # recall that during training, we normalize regression targets with FPN's stride.
             # we denormalize them here.
             r = r * s
+            if self.thresh_with_active:
+                mr = mr * (ma > 0.)
             sampled_boxes.append(
                 self.forward_for_single_feature_map(
                     l, o, r, c, mr, self.image_sizes
