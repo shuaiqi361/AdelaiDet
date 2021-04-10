@@ -456,7 +456,7 @@ class SMInstOutputs(object):
         activation_loss = activation_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
 
         if self.thresh_with_active:
-            mask_pred = mask_pred * (mask_activation_pred > 0.)
+            mask_pred = mask_pred * (mask_activation_pred.detach() > 0.)
 
         total_mask_loss = 0.
         if self.loss_on_mask:
