@@ -456,7 +456,7 @@ class SMInstOutputs(object):
         activation_loss = activation_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
 
         if self.thresh_with_active:
-            mask_pred = mask_pred * (mask_activation_pred.detach() > 0.)
+            mask_pred = mask_pred * torch.sigmoid(mask_activation_pred)
 
         total_mask_loss = 0.
         if self.loss_on_mask:
@@ -686,7 +686,7 @@ class SMInstOutputs(object):
             # we denormalize them here.
             r = r * s
             if self.thresh_with_active:
-                mr = mr * (ma > 0.)
+                mr = mr * torch.sigmoid(ma)
             sampled_boxes.append(
                 self.forward_for_single_feature_map(
                     l, o, r, c, mr, self.image_sizes
