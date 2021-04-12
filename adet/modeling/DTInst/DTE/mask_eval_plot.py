@@ -89,14 +89,14 @@ if __name__ == "__main__":
         # dtms_rc = np.where(dtms_rc > 0.4, 1, 0)
         IoUevaluate.add_batch(dtms_rc, masks.numpy())
         codes.append(dtms_codes.numpy())
-        break
+        # break
 
     codes = np.concatenate(codes, axis=0)  # n_data, n_codes
     # plot heatmap for active coefficeints, show frequency
     # plot_data = np.sum(np.abs(codes), axis=0) / len(codes)
     plot_data = np.abs(codes[0])
     print(plot_data.shape, len(codes))
-    ax = sns.heatmap(plot_data.reshape((8, 8)), linewidths=.5)
+    ax = sns.heatmap(plot_data.reshape((8, 8)), linewidths=.5, annot=True, fmt=".2f")
     plt.show()
     # exit()
 
