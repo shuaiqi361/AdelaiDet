@@ -439,7 +439,7 @@ class MEInstOutputs(object):
         if self.loss_on_code:
             # m*m mask labels --> n_components encoding labels
             mask_targets_ = self.mask_encoding.encoder(mask_targets)
-            if self.mask_loss_type == 'mse':
+            if 'mse' in self.mask_loss_type:
                 mask_loss = F.mse_loss(
                     mask_pred,
                     mask_targets_,
