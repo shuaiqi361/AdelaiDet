@@ -140,7 +140,7 @@ def prepare_distance_transform_from_mask_with_weights(masks, mask_size, kernel=5
     for m in masks:
         dist_m = cv2.distanceTransform(m, distanceType=dist_type, maskSize=kernel)
         # dist_m_bg = cv2.distanceTransform(1 - m, distanceType=dist_type, maskSize=kernel)
-        dist_m = dist_m / (np.max(dist_m) + 1e-3)  # basic dtms in (0, 1)
+        dist_m = dist_m / (np.max(dist_m) + 1e-5)  # basic dtms in (0, 1)
         # dist_m_bg = dist_m_bg / max(np.max(dist_m_bg), 1.)
         weight_map = np.where(dist_m > 0, fg_weighting + bg_weighting - dist_m, bg_weighting).astype(np.float32)
         dist_map = np.where(dist_m > 0, dist_m, -1).astype(np.float32)  # DTM in (-1, 0-1)

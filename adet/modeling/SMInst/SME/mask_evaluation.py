@@ -27,13 +27,14 @@ def parse_args():
                         type=str)
     parser.add_argument('--dataset', default='coco_2017_val', type=str)
     parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/'
-                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n384_a0.40.npy',
+                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n512_a0.50.npy',
                         type=str)
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
-    parser.add_argument('--n_codes', default=384, type=int)
-    parser.add_argument('--mask_sparse_alpha', default=0.40, type=float)
+    parser.add_argument('--n_codes', default=512, type=int)
+    parser.add_argument('--mask_sparse_alpha', default=0.5, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
+    parser.add_argument('--top-code', default=60, type=int)
     args = parser.parse_args()
     return args
 
@@ -63,6 +64,8 @@ if __name__ == "__main__":
     size_data = len(mask_loader)
     sparsity_counts = []
     kurtosis_counts = []
+    all_masks = []
+    reconstruction_error = []
 
     # evaluation.
     IoUevaluate = IOUMetric(2)
@@ -72,10 +75,14 @@ if __name__ == "__main__":
         # generate the reconstruction mask.
         masks = masks.view(masks.shape[0], -1)  # a batch of masks: (N, 784)
         masks = masks.to(torch.float32)
+        all_masks.append(masks)
 
         # --> encode --> decode.
         mask_codes = fast_ista(masks, learned_dict, lmbda=sparse_alpha, max_iter=70)
         mask_rc = torch.matmul(mask_codes, learned_dict).numpy()
+
+        # rec_err = np.sum((mask_rc - masks) ** 2, axis=-1).reshape(1, -1)
+        # reconstruction_error.append(rec_err)
 
         sparsity_counts.append(np.mean(np.abs(mask_codes.numpy()) > 1e-2, axis=1))
         kurtosis_counts.append(mask_codes.numpy())
@@ -83,6 +90,7 @@ if __name__ == "__main__":
         # eva.
         mask_rc = np.where(mask_rc >= 0.5, 1, 0)
         IoUevaluate.add_batch(mask_rc, masks.numpy())
+        break
 
     _, _, _, mean_iu, _ = IoUevaluate.evaluate()
     print("The mIoU for {}: {}".format(dictionary_path.split('/')[-1], mean_iu))
@@ -92,14 +100,30 @@ if __name__ == "__main__":
 
     # calculate Kurtosis for predicted codes
     kurtosis_counts = np.concatenate(kurtosis_counts, axis=0)
+    all_mask_codes = kurtosis_counts.copy()
     abs_codes = kurtosis_counts ** 2.
     kur = np.sum(kurtosis(kurtosis_counts, axis=1, fisher=True, bias=False)) / len(kurtosis_counts)
     print('Overall Kurtosis: ', kur)
 
     # calculate the variance explained by the top 60 codes
+    all_masks = np.concatenate(all_masks, axis=0)
+    print('Total number of instances evaluated: ', all_masks.shape)
+    total_var = np.sum(np.var(all_masks, axis=0))
     var_explained = []
-    for i in range(abs_codes.shape[0]):
-        t_ = np.sort(abs_codes[i])[::-1]
-        var_explained.append(np.sum(t_[:60]) / (np.sum(t_) + 1e-6))
+    print('For each shape: ')
+    learned_dict = learned_dict.numpy()
+    for i in range(all_mask_codes.shape[0]):
+        idx_codes = np.argsort(abs_codes[i])[::-1][:args.top_code]
+        # print('idx shape: ', idx_codes.shape)
+        mask_code_ = np.zeros(shape=all_mask_codes[i].shape)
+        mask_code_[idx_codes] = 1
+        # print('mask_code_ shape: ', mask_code_.shape)
+        rec_error = all_masks[i, :] - np.matmul(all_mask_codes[i] * mask_code_, learned_dict)  # keep the top-60 components
+        # print('rec_error shape: ', rec_error.shape)
+        rec_error = np.sum(rec_error ** 2)
+        # exit()
 
+        var_explained.append(1 - rec_error / total_var)
+
+    print('Total variance: ', total_var)
     print('Variance explained: ', np.mean(var_explained))
