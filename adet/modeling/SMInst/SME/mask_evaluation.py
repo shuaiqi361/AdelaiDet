@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument('--n_codes', default=256, type=int)
     parser.add_argument('--mask_sparse_alpha', default=0.2, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
-    parser.add_argument('--top-code', default=50, type=int)
+    parser.add_argument('--top-code', default=60, type=int)
     args = parser.parse_args()
     return args
 

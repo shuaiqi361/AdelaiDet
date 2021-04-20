@@ -29,13 +29,13 @@ def parse_args():
     #                                             'sparse_shape_dict/mask_fromDTM_minusone_basis_m28_n256_a0.30.npy',
     #                     type=str)
     parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling/'
-                                                'DTInst/dictionary/mask_fromDTM_complement_basis_m28_n256_a0.30.npy',
+                                                'DTInst/dictionary/mask_fromDTM_complement_basis_m28_n256_a0.40.npy',
                         type=str)
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
     parser.add_argument('--n_codes', default=256, type=int)
     parser.add_argument('--n_vertices', default=360, type=int)
-    parser.add_argument('--sparse_alpha', default=0.30, type=float)
+    parser.add_argument('--sparse_alpha', default=0.40, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     parser.add_argument('--top-code', default=60, type=int)
     args = parser.parse_args()
@@ -103,34 +103,34 @@ if __name__ == "__main__":
     print("The mIoU for {}: {}".format(dictionary_path.split('/')[-1], mean_iu))
     print('Overall code activation rate: ', np.sum(sparsity_counts) * 1. / size_data / n_codes / args.batch_size)
 
-    # # calculate Kurtosis for predicted codes
-    # kurtosis_counts = np.concatenate(kurtosis_counts, axis=0)
-    # all_mask_codes = kurtosis_counts.copy()
-    # abs_codes = kurtosis_counts ** 2.
-    # kur = np.sum(kurtosis(kurtosis_counts, axis=1, fisher=True, bias=False)) / len(kurtosis_counts)
-    # print('Overall Kurtosis: ', kur)
-    #
-    # # calculate the variance explained by the top 60 codes
-    # all_masks = np.concatenate(all_masks, axis=0)
-    # print('Total number of instances evaluated: ', all_masks.shape)
-    # total_var = np.sum(np.var(all_masks, axis=0))
-    # var_explained = []
-    # print('For each shape: ')
-    # learned_dict = learned_dict.numpy()
-    # for i in range(all_mask_codes.shape[0]):
-    #     idx_codes = np.argsort(abs_codes[i])[::-1][:args.top_code]
-    #     # print('idx shape: ', idx_codes.shape)
-    #     mask_code_ = np.zeros(shape=all_mask_codes[i].shape)
-    #     mask_code_[idx_codes] = 1
-    #     # print('mask_code_ shape: ', mask_code_.shape)
-    #     rec_error = all_masks[i, :] - np.matmul(all_mask_codes[i] * mask_code_,
-    #                                             learned_dict)  # keep the top-60 components
-    #     # print('rec_error shape: ', rec_error.shape)
-    #     rec_error = np.sum(rec_error ** 2)
-    #     # exit()
-    #
-    #     var_explained.append(1 - rec_error / total_var)
-    #
-    # print('Total variance: ', total_var)
-    # print('Variance explained: ', np.mean(var_explained))
+    # calculate Kurtosis for predicted codes
+    kurtosis_counts = np.concatenate(kurtosis_counts, axis=0)
+    all_mask_codes = kurtosis_counts.copy()
+    abs_codes = kurtosis_counts ** 2.
+    kur = np.sum(kurtosis(kurtosis_counts, axis=1, fisher=True, bias=False)) / len(kurtosis_counts)
+    print('Overall Kurtosis: ', kur)
+
+    # calculate the variance explained by the top 60 codes
+    all_masks = np.concatenate(all_masks, axis=0)
+    print('Total number of instances evaluated: ', all_masks.shape)
+    total_var = np.sum(np.var(all_masks, axis=0))
+    var_explained = []
+    print('For each shape: ')
+    learned_dict = learned_dict.numpy()
+    for i in range(all_mask_codes.shape[0]):
+        idx_codes = np.argsort(abs_codes[i])[::-1][:args.top_code]
+        # print('idx shape: ', idx_codes.shape)
+        mask_code_ = np.zeros(shape=all_mask_codes[i].shape)
+        mask_code_[idx_codes] = 1
+        # print('mask_code_ shape: ', mask_code_.shape)
+        rec_error = all_masks[i, :] - np.matmul(all_mask_codes[i] * mask_code_,
+                                                learned_dict)  # keep the top-60 components
+        # print('rec_error shape: ', rec_error.shape)
+        rec_error = np.sum(rec_error ** 2)
+        # exit()
+
+        var_explained.append(1 - rec_error / total_var)
+
+    print('Total variance: ', total_var)
+    print('Variance explained: ', np.mean(var_explained))
 
