@@ -32,6 +32,7 @@ def parse_args():
     parser.add_argument('--whiten', default=True, type=bool)
     parser.add_argument('--sigmoid', default=True, type=bool)
     parser.add_argument('--batch-size', default=1000, type=int)
+    parser.add_argument('--top-code', default=50, type=int)
     args = parser.parse_args()
     return args
 
@@ -103,8 +104,15 @@ if __name__ == "__main__":
         # --> encode --> decode.
         mask_rc = transform(masks_random, components_=components_c, explained_variance_=explained_variance_c,
                             mean_=mean_c, whiten=whiten)
-        mask_rc = inverse_transform(mask_rc, components_=components_c, explained_variance_=explained_variance_c,
+
+        # select top-k components
+        temp_mask_ = components_c * 0.
+        temp_mask_[:args.top_code, :] = 1
+        mask_rc = inverse_transform(mask_rc, components_=components_c * temp_mask_, explained_variance_=explained_variance_c,
                                     mean_=mean_c, whiten=whiten)
+
+        # mask_rc = inverse_transform(mask_rc, components_=components_c, explained_variance_=explained_variance_c,
+        #                             mean_=mean_c, whiten=whiten)
 
         # post-process.
         if sigmoid:

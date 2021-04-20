@@ -27,14 +27,14 @@ def parse_args():
                         type=str)
     parser.add_argument('--dataset', default='coco_2017_val', type=str)
     parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/'
-                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n512_a0.50.npy',
+                                                'modeling/SMInst/dictionary/mask_fromMask_basis_m28_n256_a0.20.npy',
                         type=str)
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
-    parser.add_argument('--n_codes', default=512, type=int)
-    parser.add_argument('--mask_sparse_alpha', default=0.5, type=float)
+    parser.add_argument('--n_codes', default=256, type=int)
+    parser.add_argument('--mask_sparse_alpha', default=0.2, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
-    parser.add_argument('--top-code', default=60, type=int)
+    parser.add_argument('--top-code', default=50, type=int)
     args = parser.parse_args()
     return args
 
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         all_masks.append(masks)
 
         # --> encode --> decode.
-        mask_codes = fast_ista(masks, learned_dict, lmbda=sparse_alpha, max_iter=70)
+        mask_codes = fast_ista(masks, learned_dict, lmbda=sparse_alpha, max_iter=80)
         mask_rc = torch.matmul(mask_codes, learned_dict).numpy()
 
         # rec_err = np.sum((mask_rc - masks) ** 2, axis=-1).reshape(1, -1)
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         # eva.
         mask_rc = np.where(mask_rc >= 0.5, 1, 0)
         IoUevaluate.add_batch(mask_rc, masks.numpy())
-        break
+        # break
 
     _, _, _, mean_iu, _ = IoUevaluate.evaluate()
     print("The mIoU for {}: {}".format(dictionary_path.split('/')[-1], mean_iu))
