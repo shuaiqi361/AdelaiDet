@@ -9,7 +9,7 @@ from detectron2.layers import ShapeSpec
 from detectron2.modeling.proposal_generator.build import PROPOSAL_GENERATOR_REGISTRY
 
 from adet.layers import DFConv2d, IOULoss, NaiveGroupNorm, GCN
-from .SparseMask_outputs import SMInstOutputs
+from .SparseMask_output import SMInstOutputs
 from .SparseMaskeEncode import SparseMaskEncoding
 
 

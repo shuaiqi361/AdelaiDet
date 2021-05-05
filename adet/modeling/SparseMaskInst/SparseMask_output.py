@@ -63,7 +63,6 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_regression,
-            mask_activation,
             mask_encoding,
             focal_loss_alpha,
             focal_loss_gamma,
@@ -402,7 +401,7 @@ class SMInstOutputs(object):
         reg_targets = reg_targets[pos_inds]
         ctrness_pred = ctrness_pred[pos_inds]
         mask_pred = mask_pred[pos_inds]
-        mask_activation_pred = mask_activation_pred[pos_inds]
+        # mask_activation_pred = mask_activation_pred[pos_inds]
 
         assert mask_pred.shape[0] == mask_targets.shape[0], \
             print("The number(positive) should be equal between "
@@ -437,8 +436,8 @@ class SMInstOutputs(object):
         # activation_loss = activation_loss.sum(1) * ctrness_targets
         # activation_loss = activation_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
 
-        if self.thresh_with_active:
-            mask_pred = mask_pred * torch.sigmoid(mask_activation_pred)
+        # if self.thresh_with_active:
+        #     mask_pred = mask_pred * torch.sigmoid(mask_activation_pred)
 
         total_mask_loss = 0.
         if self.loss_on_mask:

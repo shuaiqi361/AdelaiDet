@@ -1,7 +1,7 @@
 # coding:utf-8
 import torch
 import torch.nn as nn
-from .SME import fast_ista
+from .SparseMaskEncoding import fast_ista
 
 
 @torch.no_grad()
