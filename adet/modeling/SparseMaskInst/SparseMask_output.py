@@ -561,7 +561,7 @@ class SMInstOutputs(object):
             "loss_SMInst_cls": class_loss,
             "loss_SMInst_loc": reg_loss,
             "loss_SMInst_ctr": ctrness_loss,
-            "loss_SMInst_mask": total_mask_loss,
+            "loss_SMInst_mask": total_mask_loss * 0.5,
         }
         return losses, {}
 
