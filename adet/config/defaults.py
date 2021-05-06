@@ -303,8 +303,7 @@ _C.MODEL.SMInst.IOU_LABELS = [0, 1]
 # Whether to use class_agnostic or class_specific.
 _C.MODEL.SMInst.AGNOSTIC = True
 # Some operations in mask encoding.
-_C.MODEL.SMInst.WHITEN = True
-_C.MODEL.SMInst.SIGMOID = True
+_C.MODEL.SMInst.WHITEN = False
 
 # The number of convolutions used in the mask tower.
 _C.MODEL.SMInst.NUM_MASK_CONVS = 4

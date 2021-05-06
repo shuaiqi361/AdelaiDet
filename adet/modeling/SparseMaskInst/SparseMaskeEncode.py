@@ -20,6 +20,7 @@ class SparseMaskEncoding(nn.Module):
         self.dictionary = nn.Parameter(torch.zeros(self.num_codes, self.mask_size ** 2), requires_grad=False)
         self.shape_mean = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
         self.shape_std = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
+        self.if_whiten = cfg.MODEL.SMInst.WHITEN
 
     def encoder(self, X):
         """
@@ -37,7 +38,11 @@ class SparseMaskEncoding(nn.Module):
         assert X.shape[1] == self.mask_size ** 2, print("The original mask_size of input"
                                                       " should be equal to the supposed size.")
 
-        Centered_X = (X - self.shape_mean) / self.shape_std
+        if self.if_whiten:
+            Centered_X = (X - self.shape_mean) / self.shape_std
+        else:
+            Centered_X = X - self.shape_mean
+
         X_transformed = fast_ista(Centered_X, self.dictionary, lmbda=self.sparse_alpha, max_iter=self.max_iter)
 
         return X_transformed
@@ -59,7 +64,10 @@ class SparseMaskEncoding(nn.Module):
         assert X.shape[1] == self.num_codes, print("The dim of transformed data "
                                                   "should be equal to the supposed dim.")
 
-        X_transformed = torch.matmul(X, self.dictionary) * self.shape_std + self.shape_mean
+        if self.if_whiten:
+            X_transformed = torch.matmul(X, self.dictionary) * self.shape_std + self.shape_mean
+        else:
+            X_transformed = torch.matmul(X, self.dictionary) + self.shape_mean
 
         if is_train:
             X_transformed_img = X_transformed >= 0.5  # the predicted binary mask

@@ -18,7 +18,7 @@ def parse_args():
                         type=str)
     parser.add_argument('--dataset', default='coco_2017_val', type=str)
     parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/'
-                                                'modeling/SparseMaskInst/dictionary/Centered_whitened_mask_basis_m28_n128_a0.20.npz',
+                                                'modeling/SparseMaskInst/dictionary/Centered_mask_basis_m28_n128_a0.20.npz',
                         type=str)
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument('--mask_sparse_alpha', default=0.2, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     parser.add_argument('--top-code', default=60, type=int)
-    parser.add_argument('--if-whiten', default=True, type=bool)
+    parser.add_argument('--if-whiten', default=False, type=bool)
     args = parser.parse_args()
     return args
 
