@@ -395,7 +395,7 @@ _C.MODEL.DTInst.IOU_LABELS = [0, 1]
 # Whether to use class_agnostic or class_specific.
 _C.MODEL.DTInst.AGNOSTIC = True
 # Some operations in mask encoding.
-_C.MODEL.DTInst.WHITEN = True
+_C.MODEL.DTInst.WHITEN = False
 _C.MODEL.DTInst.SIGMOID = True
 
 # The number of convolutions used in the mask tower.

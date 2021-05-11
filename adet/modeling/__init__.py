@@ -8,7 +8,8 @@ from .batext import BAText
 from .MEInst import MEInst
 # from .SMInst import SMInst
 from .SparseMaskInst import SMInst
-from .DTInst import DTInst
+# from .DTInst import DTInst
+from .SparseDTMInst import DTInst
 from .condinst import condinst
 
 _EXCLUDE = {"torch", "ShapeSpec"}
