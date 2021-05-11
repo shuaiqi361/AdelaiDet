@@ -2,10 +2,8 @@
 import torch
 import torch.nn as nn
 import cv2
-from .DTE import fast_ista, prepare_distance_transform_from_mask, \
-    prepare_overlay_DTMs_from_mask, prepare_extended_DTMs_from_mask, prepare_augmented_distance_transform_from_mask, \
-    prepare_distance_transform_from_mask_with_weights, tensor_to_dtm, \
-    prepare_complement_distance_transform_from_mask_with_weights
+from .SparseDTMEncoding import fast_ista, \
+    prepare_distance_transform_from_mask_with_weights, tensor_to_dtm
 
 
 @torch.no_grad()
@@ -55,7 +53,7 @@ class DistanceTransformEncoding(nn.Module):
         assert X.shape[1] == self.mask_size ** 2, print("The original mask_size of input"
                                                         " should be equal to the supposed size.")
 
-        X_t, weight_maps, hd_maps = prepare_complement_distance_transform_from_mask_with_weights(X, self.mask_size,
+        X_t, weight_maps, hd_maps = prepare_distance_transform_from_mask_with_weights(X, self.mask_size,
                                                                                                  dist_type=self.dist_type,
                                                                                                  fg_weighting=self.fg_weighting,
                                                                                                  bg_weighting=self.bg_weighting,

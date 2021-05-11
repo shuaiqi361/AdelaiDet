@@ -91,10 +91,17 @@ class DTInst(nn.Module):
                 # encoding parameters.
                 components_path = self.cfg.MODEL.DTInst.PATH_DICTIONARY
                 parameters = np.load(components_path)
+                learned_dict = parameters['shape_basis']
+                shape_mean = parameters['shape_mean']
+                shape_std = parameters['shape_std']
                 device = torch.device(self.cfg.MODEL.DEVICE)
                 with torch.no_grad():
-                    dictionary = nn.Parameter(torch.from_numpy(parameters).float().to(device), requires_grad=False)
+                    dictionary = nn.Parameter(torch.from_numpy(learned_dict).float().to(device), requires_grad=False)
+                    shape_mean = nn.Parameter(torch.from_numpy(shape_mean).float().to(device), requires_grad=False)
+                    shape_std = nn.Parameter(torch.from_numpy(shape_std).float().to(device), requires_grad=False)
                     self.mask_encoding.dictionary = dictionary
+                    self.mask_encoding.shape_mean = shape_mean
+                    self.mask_encoding.shape_std = shape_std
 
                 self.flag_parameters = True
         else:
