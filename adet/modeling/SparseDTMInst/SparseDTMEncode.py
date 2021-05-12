@@ -54,10 +54,10 @@ class DistanceTransformEncoding(nn.Module):
                                                         " should be equal to the supposed size.")
 
         X_t, weight_maps, hd_maps = prepare_distance_transform_from_mask_with_weights(X, self.mask_size,
-                                                                                                 dist_type=self.dist_type,
-                                                                                                 fg_weighting=self.fg_weighting,
-                                                                                                 bg_weighting=self.bg_weighting,
-                                                                                                 mask_bias=self.mask_bias)
+                                                                                      dist_type=self.dist_type,
+                                                                                      fg_weighting=self.fg_weighting,
+                                                                                      bg_weighting=self.bg_weighting,
+                                                                                      mask_bias=self.mask_bias)
 
         if self.if_whiten:
             Centered_X = (X_t - self.shape_mean) / self.shape_std

@@ -252,7 +252,7 @@ class DTInstHead(nn.Module):
                             nn.Sequential(*tower))
 
         self.cls_logits = nn.Conv2d(
-            in_channels, self.num_classes,
+            in_channels * 2, self.num_classes,
             kernel_size=3, stride=1,
             padding=1
         )
@@ -266,7 +266,7 @@ class DTInstHead(nn.Module):
         )
 
         if self.use_gcn_in_mask:
-            self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
+            self.mask_pred = GCN(in_channels * 2, self.num_codes, k=self.gcn_kernel_size)
         else:
             self.mask_pred = nn.Conv2d(
                 in_channels * 2, self.num_codes, kernel_size=3,
@@ -305,7 +305,7 @@ class DTInstHead(nn.Module):
             cls_tower = self.cls_tower(feature)
             bbox_tower = self.bbox_tower(feature)
 
-            logits.append(self.cls_logits(cls_tower))
+            # logits.append(self.cls_logits(cls_tower))
             ctrness.append(self.ctrness(bbox_tower))
             reg = self.bbox_pred(bbox_tower)
             if self.scales is not None:
@@ -315,7 +315,10 @@ class DTInstHead(nn.Module):
 
             # Mask Encoding
             mask_tower = self.mask_tower(feature)
-            mask_tower_cat = torch.cat([mask_tower, cls_tower], dim=1)
+            mask_tower_cat = torch.cat([mask_tower, cls_tower.detach()], dim=1)
             mask_reg.append(self.mask_pred(mask_tower_cat))
+
+            cls_tower_cat = torch.cat([mask_tower.detach(), cls_tower], dim=1)
+            logits.append(self.cls_logits(cls_tower_cat))
 
         return logits, bbox_reg, ctrness, bbox_towers, mask_reg
