@@ -315,10 +315,10 @@ class DTInstHead(nn.Module):
 
             # Mask Encoding
             mask_tower = self.mask_tower(feature)
-            mask_tower_cat = torch.cat([mask_tower, cls_tower], dim=1)
-            mask_reg.append(self.mask_pred(mask_tower_cat))
+            # mask_tower_cat = torch.cat([mask_tower, cls_tower], dim=1)
+            mask_reg.append(self.mask_pred(mask_tower))
 
-            cls_tower_cat = torch.cat([mask_tower, cls_tower], dim=1)
-            logits.append(self.cls_logits(cls_tower_cat))
+            # cls_tower_cat = torch.cat([mask_tower, cls_tower], dim=1)
+            logits.append(self.cls_logits(cls_tower))
 
         return logits, bbox_reg, ctrness, bbox_towers, mask_reg
