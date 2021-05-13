@@ -252,7 +252,7 @@ class DTInstHead(nn.Module):
                             nn.Sequential(*tower))
 
         self.cls_logits = nn.Conv2d(
-            in_channels * 2, self.num_classes,
+            in_channels, self.num_classes,
             kernel_size=3, stride=1,
             padding=1
         )
@@ -266,10 +266,10 @@ class DTInstHead(nn.Module):
         )
 
         if self.use_gcn_in_mask:
-            self.mask_pred = GCN(in_channels * 2, self.num_codes, k=self.gcn_kernel_size)
+            self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
         else:
             self.mask_pred = nn.Conv2d(
-                in_channels * 2, self.num_codes, kernel_size=3,
+                in_channels, self.num_codes, kernel_size=3,
                 stride=1, padding=1
             )
 
