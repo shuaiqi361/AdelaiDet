@@ -12,7 +12,6 @@ from adet.layers import DFConv2d, IOULoss, NaiveGroupNorm, GCN
 from .SparseDTM_output import DTInstOutputs
 from .SparseDTMEncode import DistanceTransformEncoding
 
-
 __all__ = ["DTInst"]
 
 INF = 100000000
@@ -32,25 +31,28 @@ class DTInst(nn.Module):
     """
     Implement Sparse Mask Encoding method.
     """
+
     def __init__(self, cfg, input_shape: Dict[str, ShapeSpec]):
         super().__init__()
         # fmt: off
-        self.cfg                  = cfg
-        self.in_features          = cfg.MODEL.DTInst.IN_FEATURES
-        self.fpn_strides          = cfg.MODEL.DTInst.FPN_STRIDES
-        self.focal_loss_alpha     = cfg.MODEL.DTInst.LOSS_ALPHA
-        self.focal_loss_gamma     = cfg.MODEL.DTInst.LOSS_GAMMA
-        self.center_sample        = cfg.MODEL.DTInst.CENTER_SAMPLE
-        self.strides              = cfg.MODEL.DTInst.FPN_STRIDES
-        self.radius               = cfg.MODEL.DTInst.POS_RADIUS
+        self.cfg = cfg
+        self.in_features = cfg.MODEL.DTInst.IN_FEATURES
+        self.fpn_strides = cfg.MODEL.DTInst.FPN_STRIDES
+        self.focal_loss_alpha = cfg.MODEL.DTInst.LOSS_ALPHA
+        self.focal_loss_gamma = cfg.MODEL.DTInst.LOSS_GAMMA
+        self.center_sample = cfg.MODEL.DTInst.CENTER_SAMPLE
+        self.strides = cfg.MODEL.DTInst.FPN_STRIDES
+        self.radius = cfg.MODEL.DTInst.POS_RADIUS
         self.pre_nms_thresh_train = cfg.MODEL.DTInst.INFERENCE_TH_TRAIN
-        self.pre_nms_thresh_test  = cfg.MODEL.DTInst.INFERENCE_TH_TEST
-        self.pre_nms_topk_train   = cfg.MODEL.DTInst.PRE_NMS_TOPK_TRAIN
-        self.pre_nms_topk_test    = cfg.MODEL.DTInst.PRE_NMS_TOPK_TEST
-        self.nms_thresh           = cfg.MODEL.DTInst.NMS_TH
-        self.post_nms_topk_train  = cfg.MODEL.DTInst.POST_NMS_TOPK_TRAIN
-        self.post_nms_topk_test   = cfg.MODEL.DTInst.POST_NMS_TOPK_TEST
-        self.thresh_with_ctr      = cfg.MODEL.DTInst.THRESH_WITH_CTR
+        self.pre_nms_thresh_test = cfg.MODEL.DTInst.INFERENCE_TH_TEST
+        self.pre_nms_topk_train = cfg.MODEL.DTInst.PRE_NMS_TOPK_TRAIN
+        self.pre_nms_topk_test = cfg.MODEL.DTInst.PRE_NMS_TOPK_TEST
+        self.nms_thresh = cfg.MODEL.DTInst.NMS_TH
+        self.post_nms_topk_train = cfg.MODEL.DTInst.POST_NMS_TOPK_TRAIN
+        self.post_nms_topk_test = cfg.MODEL.DTInst.POST_NMS_TOPK_TEST
+        self.thresh_with_ctr = cfg.MODEL.DTInst.THRESH_WITH_CTR
+        self.mask_size = cfg.MODEL.DTInst.MASK_SIZE
+
         # fmt: on
         self.iou_loss = IOULoss(cfg.MODEL.DTInst.LOC_LOSS_TYPE)
         # generate sizes of interest
@@ -81,7 +83,8 @@ class DTInst(nn.Module):
         """
         features = [features[f] for f in self.in_features]
         locations = self.compute_locations(features)
-        logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression = self.DTInst_head(features)
+        logits_pred, reg_pred, ctrness_pred, dtm_residuals, mask_regression = self.DTInst_head(features,
+                                                                                                self.mask_encoding)
 
         if self.training:
             pre_nms_thresh = self.pre_nms_thresh_train
@@ -116,6 +119,7 @@ class DTInst(nn.Module):
             reg_pred,
             ctrness_pred,
             mask_regression,
+            dtm_residuals,
             self.mask_encoding,
             self.focal_loss_alpha,
             self.focal_loss_gamma,
@@ -181,6 +185,8 @@ class DTInstHead(nn.Module):
         self.num_codes = cfg.MODEL.DTInst.NUM_CODE
         self.use_gcn_in_mask = cfg.MODEL.DTInst.USE_GCN_IN_MASK
         self.gcn_kernel_size = cfg.MODEL.DTInst.GCN_KERNEL_SIZE
+        self.mask_size = cfg.MODEL.DTInst.MASK_SIZE
+        self.if_whiten = cfg.MODEL.SMInst.WHITEN
 
         head_configs = {"cls": (cfg.MODEL.DTInst.NUM_CLS_CONVS,
                                 cfg.MODEL.DTInst.USE_DEFORMABLE),
@@ -265,6 +271,16 @@ class DTInstHead(nn.Module):
             stride=1, padding=1
         )
 
+        self.residual = nn.Sequential(
+            nn.Conv2d(in_channels * 2 + self.mask_size ** 2, in_channels, kernel_size=1, stride=1, padding=0),
+            nn.GroupNorm(32, in_channels),
+            nn.ReLU(),
+            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.GroupNorm(32, in_channels),
+            nn.ReLU(),
+            nn.Conv2d(in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+        )
+
         if self.use_gcn_in_mask:
             self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
         else:
@@ -282,7 +298,7 @@ class DTInstHead(nn.Module):
             self.cls_tower, self.bbox_tower,
             self.share_tower, self.cls_logits,
             self.bbox_pred, self.ctrness,
-            self.mask_tower, self.mask_pred
+            self.mask_tower, self.mask_pred, self.residual
         ]:
             for l in modules.modules():
                 if isinstance(l, nn.Conv2d):
@@ -294,11 +310,11 @@ class DTInstHead(nn.Module):
         bias_value = -math.log((1 - prior_prob) / prior_prob)
         torch.nn.init.constant_(self.cls_logits.bias, bias_value)
 
-    def forward(self, x):
+    def forward(self, x, mask_encoding):
         logits = []
         bbox_reg = []
         ctrness = []
-        bbox_towers = []
+        dtm_residuals = []
         mask_reg = []
         for l, feature in enumerate(x):
             feature = self.share_tower(feature)
@@ -316,9 +332,22 @@ class DTInstHead(nn.Module):
             # Mask Encoding
             mask_tower = self.mask_tower(feature)
             # mask_tower_cat = torch.cat([mask_tower, cls_tower], dim=1)
-            mask_reg.append(self.mask_pred(mask_tower))
+            mask_code_prediction = self.mask_pred(mask_tower)
+            mask_reg.append(mask_code_prediction)
 
             # cls_tower_cat = torch.cat([mask_tower, cls_tower], dim=1)
             logits.append(self.cls_logits(cls_tower))
 
-        return logits, bbox_reg, ctrness, bbox_towers, mask_reg
+            if self.if_whiten:
+                init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1),
+                                         mask_encoding.dictionary) * mask_encoding.shape_std.view(1, 1, 1, -1) + \
+                            mask_encoding.shape_mean.view(1, 1, 1, -1)
+            else:
+                init_mask = torch.matmul(mask_code_prediction.view(0, 2, 3, 1),
+                                         mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
+            residual_features = torch.cat([cls_tower, bbox_tower, init_mask.permute(0, 3, 1, 2)],
+                                          dim=1)
+            residual_mask = self.residual(residual_features)
+            dtm_residuals.append(residual_mask)
+
+        return logits, bbox_reg, ctrness, dtm_residuals, mask_reg
