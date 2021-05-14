@@ -93,7 +93,7 @@ class DistanceTransformEncoding(nn.Module):
         if is_train:
             X_transformed_img = X_transformed + 0.9 >= 0.5  # the predicted binary mask for DTMs
             return X_transformed, X_transformed_img
-        else:
-            X_transformed = torch.clamp(X_transformed + 0.9, min=0.01, max=0.99)  # for normal DTM
+        # else:
+        #     X_transformed = torch.clamp(X_transformed + 0.9, min=0.01, max=0.99)  # for normal DTM
 
         return X_transformed

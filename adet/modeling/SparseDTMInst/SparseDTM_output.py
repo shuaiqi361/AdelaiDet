@@ -680,7 +680,7 @@ class DTInstOutputs(object):
             per_image_masks_residual = boxlists[i].pred_masks_residual
             per_image_masks = self.mask_encoding.decoder(per_image_masks, is_train=False)
             per_image_masks = per_image_masks.view(-1, 1, self.mask_size, self.mask_size) + per_image_masks_residual.view(-1, 1, self.mask_size, self.mask_size)
-            boxlists[i].pred_masks = per_image_masks
+            boxlists[i].pred_masks = torch.clamp(per_image_masks + 0.5, min=0.01, max=0.99)
 
         return boxlists
 
