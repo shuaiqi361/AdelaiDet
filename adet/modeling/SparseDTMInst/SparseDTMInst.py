@@ -272,7 +272,7 @@ class DTInstHead(nn.Module):
         )
 
         self.residual = nn.Sequential(
-            nn.Conv2d(in_channels * 2 + self.mask_size ** 2, in_channels, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(in_channels * 2 + self.mask_size ** 2, in_channels, kernel_size=3, stride=1, padding=1),
             nn.GroupNorm(32, in_channels),
             nn.ReLU(),
             nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
@@ -343,7 +343,7 @@ class DTInstHead(nn.Module):
                                          mask_encoding.dictionary) * mask_encoding.shape_std.view(1, 1, 1, -1) + \
                             mask_encoding.shape_mean.view(1, 1, 1, -1)
             else:
-                init_mask = torch.matmul(mask_code_prediction.view(0, 2, 3, 1),
+                init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1),
                                          mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
             residual_features = torch.cat([cls_tower, bbox_tower, init_mask.permute(0, 3, 1, 2)],
                                           dim=1)
