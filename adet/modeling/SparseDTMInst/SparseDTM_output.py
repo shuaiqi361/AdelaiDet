@@ -435,9 +435,9 @@ class DTInstOutputs(object):
         ) / num_pos_avg
 
         total_mask_loss = 0.
-        dtm_pred_, binary_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)  # from sparse coefficients to DTMs/images
+        dtm_pred_init, binary_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)  # from sparse coefficients to DTMs/images
         code_targets, dtm_targets, weight_maps, hd_maps = self.mask_encoding.encoder(mask_targets)
-        dtm_pred_ += mask_residual_pred
+        dtm_pred_ = mask_residual_pred + dtm_pred_init
         if self.loss_on_mask:
             if 'mask_mse' in self.mask_loss_type:
                 mask_loss = F.mse_loss(

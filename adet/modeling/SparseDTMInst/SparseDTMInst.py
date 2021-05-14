@@ -81,11 +81,6 @@ class DTInst(nn.Module):
                 like `scores`, `labels` and `mask` (for Mask R-CNN models).
 
         """
-        features = [features[f] for f in self.in_features]
-        locations = self.compute_locations(features)
-        logits_pred, reg_pred, ctrness_pred, dtm_residuals, mask_regression = self.DTInst_head(features,
-                                                                                                self.mask_encoding)
-
         if self.training:
             pre_nms_thresh = self.pre_nms_thresh_train
             pre_nms_topk = self.pre_nms_topk_train
@@ -111,6 +106,11 @@ class DTInst(nn.Module):
             pre_nms_thresh = self.pre_nms_thresh_test
             pre_nms_topk = self.pre_nms_topk_test
             post_nms_topk = self.post_nms_topk_test
+
+        features = [features[f] for f in self.in_features]
+        locations = self.compute_locations(features)
+        logits_pred, reg_pred, ctrness_pred, dtm_residuals, mask_regression = self.DTInst_head(features,
+                                                                                               self.mask_encoding)
 
         outputs = DTInstOutputs(
             images,
