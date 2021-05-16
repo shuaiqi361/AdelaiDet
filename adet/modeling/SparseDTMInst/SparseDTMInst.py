@@ -348,6 +348,6 @@ class DTInstHead(nn.Module):
             residual_features = torch.cat([cls_tower, bbox_tower, init_mask.permute(0, 3, 1, 2)],
                                           dim=1)
             residual_mask = self.residual(residual_features)
-            dtm_residuals.append(residual_mask + init_mask)
+            dtm_residuals.append(residual_mask + init_mask.permute(0, 3, 1, 2))
 
         return logits, bbox_reg, ctrness, dtm_residuals, mask_reg
