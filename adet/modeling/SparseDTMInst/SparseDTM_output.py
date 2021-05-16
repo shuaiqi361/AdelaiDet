@@ -437,7 +437,7 @@ class DTInstOutputs(object):
         total_mask_loss = 0.
         dtm_pred_init, binary_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)  # from sparse coefficients to DTMs/images
         code_targets, dtm_targets, weight_maps, hd_maps = self.mask_encoding.encoder(mask_targets)
-        dtm_pred_ = mask_residual_pred + dtm_pred_init
+        dtm_pred_ = mask_residual_pred  # + dtm_pred_init
         if self.loss_on_mask:
             if 'mask_mse' in self.mask_loss_type:
                 mask_loss = F.mse_loss(
@@ -677,10 +677,11 @@ class DTInstOutputs(object):
         num_images = len(boxlists)
         for i in range(num_images):
             per_image_masks = boxlists[i].pred_masks
-            per_image_masks_residual = boxlists[i].pred_masks_residual
-            per_image_masks = self.mask_encoding.decoder(per_image_masks, is_train=False)
-            per_image_masks = per_image_masks.view(-1, 1, self.mask_size, self.mask_size) + per_image_masks_residual.view(-1, 1, self.mask_size, self.mask_size)
-            boxlists[i].pred_masks = torch.clamp(per_image_masks + 0.5, min=0.01, max=0.99)
+            # per_image_masks_residual = boxlists[i].pred_masks_residual
+            # per_image_masks = self.mask_encoding.decoder(per_image_masks, is_train=False)
+            # per_image_masks = per_image_masks.view(-1, 1, self.mask_size, self.mask_size) + per_image_masks_residual.view(-1, 1, self.mask_size, self.mask_size)
+            # boxlists[i].pred_masks = torch.clamp(per_image_masks + 0.5, min=0.01, max=0.99)
+            boxlists[i].pred_masks = torch.clamp(per_image_masks + 0.9, min=0.01, max=0.99)
 
         return boxlists
 
