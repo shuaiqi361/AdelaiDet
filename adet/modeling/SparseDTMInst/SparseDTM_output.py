@@ -75,7 +75,6 @@ class DTInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_regression,
-            dtm_residuals,
             mask_encoding,
             focal_loss_alpha,
             focal_loss_gamma,
@@ -100,7 +99,7 @@ class DTInstOutputs(object):
         self.locations = locations
         self.mask_regression = mask_regression
         self.mask_encoding = mask_encoding
-        self.dtm_residuals = dtm_residuals
+        # self.dtm_residuals = dtm_residuals
 
         self.gt_instances = gt_instances
         self.num_feature_maps = len(logits_pred)
@@ -385,8 +384,7 @@ class DTInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_pred,
-            mask_targets,
-            mask_residual
+            mask_targets
     ):
         num_classes = logits_pred.size(1)
         labels = labels.flatten()
@@ -413,7 +411,7 @@ class DTInstOutputs(object):
         reg_targets = reg_targets[pos_inds]
         ctrness_pred = ctrness_pred[pos_inds]
         mask_pred = mask_pred[pos_inds]
-        mask_residual_pred = mask_residual[pos_inds]
+        # mask_residual_pred = mask_residual[pos_inds]
         assert mask_pred.shape[0] == mask_targets.shape[0], \
             print("The number(positive) should be equal between "
                   "masks_pred(prediction) and mask_targets(target).")
@@ -435,9 +433,9 @@ class DTInstOutputs(object):
         ) / num_pos_avg
 
         total_mask_loss = 0.
-        dtm_pred_init, binary_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)  # from sparse coefficients to DTMs/images
+        dtm_pred_, binary_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)  # from sparse coefficients to DTMs/images
         code_targets, dtm_targets, weight_maps, hd_maps = self.mask_encoding.encoder(mask_targets)
-        dtm_pred_ = mask_residual_pred  # + dtm_pred_init
+        # dtm_pred_ = mask_residual_pred  # + dtm_pred_init
         if self.loss_on_mask:
             if 'mask_mse' in self.mask_loss_type:
                 mask_loss = F.mse_loss(
@@ -627,12 +625,12 @@ class DTInstOutputs(object):
                 for x in self.mask_regression
             ], dim=0, )
 
-        mask_res = cat(
-            [
-                # Reshape: (N, D, Hi, Wi) -> (N, Hi, Wi, D) -> (N*Hi*Wi, D)
-                x.permute(0, 2, 3, 1).reshape(-1, self.mask_size ** 2)
-                for x in self.dtm_residuals
-            ], dim=0, )
+        # mask_res = cat(
+        #     [
+        #         # Reshape: (N, D, Hi, Wi) -> (N, Hi, Wi, D) -> (N*Hi*Wi, D)
+        #         x.permute(0, 2, 3, 1).reshape(-1, self.mask_size ** 2)
+        #         for x in self.dtm_residuals
+        #     ], dim=0, )
 
         mask_targets = cat(
             [
@@ -647,8 +645,7 @@ class DTInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_pred,
-            mask_targets,
-            mask_res
+            mask_targets
         )
 
     def predict_proposals(self):
@@ -657,16 +654,16 @@ class DTInstOutputs(object):
         bundle = (
             self.locations, self.logits_pred,
             self.reg_pred, self.ctrness_pred,
-            self.strides, self.mask_regression, self.dtm_residuals
+            self.strides, self.mask_regression
         )
 
-        for i, (l, o, r, c, s, mr, dr) in enumerate(zip(*bundle)):
+        for i, (l, o, r, c, s, mr) in enumerate(zip(*bundle)):
             # recall that during training, we normalize regression targets with FPN's stride.
             # we denormalize them here.
             r = r * s
             sampled_boxes.append(
                 self.forward_for_single_feature_map(
-                    l, o, r, c, mr, dr, self.image_sizes
+                    l, o, r, c, mr, self.image_sizes
                 )
             )
 
@@ -676,18 +673,19 @@ class DTInstOutputs(object):
 
         num_images = len(boxlists)
         for i in range(num_images):
-            # per_image_masks = boxlists[i].pred_masks
+            per_image_masks = boxlists[i].pred_masks
             # per_image_masks_residual = boxlists[i].pred_masks_residual
-            # per_image_masks = self.mask_encoding.decoder(per_image_masks, is_train=False)
+            per_image_masks = self.mask_encoding.decoder(per_image_masks, is_train=False)
+            boxlists[i].pred_masks = per_image_masks.view(-1, 1, self.mask_size, self.mask_size)
             # per_image_masks = per_image_masks.view(-1, 1, self.mask_size, self.mask_size) + per_image_masks_residual.view(-1, 1, self.mask_size, self.mask_size)
             # boxlists[i].pred_masks = torch.clamp(per_image_masks + 0.5, min=0.01, max=0.99)
-            boxlists[i].pred_masks = torch.clamp(boxlists[i].pred_masks_residual + 0.9, min=0.01, max=0.99).view(-1, 1, self.mask_size, self.mask_size)
+            # boxlists[i].pred_masks = torch.clamp(boxlists[i].pred_masks_residual + 0.9, min=0.01, max=0.99).view(-1, 1, self.mask_size, self.mask_size)
 
         return boxlists
 
     def forward_for_single_feature_map(
             self, locations, box_cls,
-            reg_pred, ctrness, mask_regression, mask_residual, image_sizes
+            reg_pred, ctrness, mask_regression, image_sizes
     ):
         N, C, H, W = box_cls.shape
 
@@ -700,8 +698,8 @@ class DTInstOutputs(object):
         ctrness = ctrness.reshape(N, -1).sigmoid()
         mask_regression = mask_regression.view(N, self.num_codes, H, W).permute(0, 2, 3, 1)
         mask_regression = mask_regression.reshape(N, -1, self.num_codes)
-        mask_residual = mask_residual.view(N, self.mask_size ** 2, H, W).permute(0, 2, 3, 1)
-        mask_residual = mask_residual.reshape(N, -1, self.mask_size ** 2)
+        # mask_residual = mask_residual.view(N, self.mask_size ** 2, H, W).permute(0, 2, 3, 1)
+        # mask_residual = mask_residual.reshape(N, -1, self.mask_size ** 2)
 
         # if self.thresh_with_ctr is True, we multiply the classification
         # scores with centerness scores before applying the threshold.
@@ -732,8 +730,8 @@ class DTInstOutputs(object):
             per_box_mask = mask_regression[i]
             per_box_mask = per_box_mask[per_box_loc]
 
-            per_box_mask_residual = mask_residual[i]
-            per_box_mask_residual = per_box_mask_residual[per_box_loc]
+            # per_box_mask_residual = mask_residual[i]
+            # per_box_mask_residual = per_box_mask_residual[per_box_loc]
 
             per_pre_nms_top_n = pre_nms_top_n[i]
 
@@ -744,7 +742,7 @@ class DTInstOutputs(object):
                 per_box_regression = per_box_regression[top_k_indices]
                 per_locations = per_locations[top_k_indices]
                 per_box_mask = per_box_mask[top_k_indices]
-                per_box_mask_residual = per_box_mask_residual[top_k_indices]
+                # per_box_mask_residual = per_box_mask_residual[top_k_indices]
 
             detections = torch.stack([
                 per_locations[:, 0] - per_box_regression[:, 0],
@@ -759,7 +757,7 @@ class DTInstOutputs(object):
             boxlist.pred_classes = per_class
             boxlist.locations = per_locations
             boxlist.pred_masks = per_box_mask
-            boxlist.pred_masks_residual = per_box_mask_residual
+            # boxlist.pred_masks_residual = per_box_mask_residual
 
             results.append(boxlist)
 

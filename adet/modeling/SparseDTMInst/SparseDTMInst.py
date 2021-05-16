@@ -109,8 +109,9 @@ class DTInst(nn.Module):
 
         features = [features[f] for f in self.in_features]
         locations = self.compute_locations(features)
-        logits_pred, reg_pred, ctrness_pred, dtm_residuals, mask_regression = self.DTInst_head(features,
-                                                                                               self.mask_encoding)
+        # logits_pred, reg_pred, ctrness_pred, dtm_residuals, mask_regression = self.DTInst_head(features,
+        #                                                                                        self.mask_encoding)
+        logits_pred, reg_pred, ctrness_pred, mask_regression = self.DTInst_head(features, self.mask_encoding)
 
         outputs = DTInstOutputs(
             images,
@@ -119,7 +120,6 @@ class DTInst(nn.Module):
             reg_pred,
             ctrness_pred,
             mask_regression,
-            dtm_residuals,
             self.mask_encoding,
             self.focal_loss_alpha,
             self.focal_loss_gamma,
@@ -271,12 +271,19 @@ class DTInstHead(nn.Module):
             stride=1, padding=1
         )
 
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(in_channels * 2 + self.mask_size ** 2, in_channels, kernel_size=3, stride=1, padding=1),
+        #     nn.GroupNorm(32, in_channels),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+        #     nn.GroupNorm(32, in_channels),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+        # )
         self.residual = nn.Sequential(
-            nn.Conv2d(in_channels * 2 + self.mask_size ** 2, in_channels, kernel_size=3, stride=1, padding=1),
-            nn.GroupNorm(32, in_channels),
+            nn.Conv2d(in_channels * 2 + self.num_codes, in_channels, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
-            nn.GroupNorm(32, in_channels),
             nn.ReLU(),
             nn.Conv2d(in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
         )
@@ -314,7 +321,7 @@ class DTInstHead(nn.Module):
         logits = []
         bbox_reg = []
         ctrness = []
-        dtm_residuals = []
+        # dtm_residuals = []
         mask_reg = []
         for l, feature in enumerate(x):
             feature = self.share_tower(feature)
@@ -331,23 +338,25 @@ class DTInstHead(nn.Module):
 
             # Mask Encoding
             mask_tower = self.mask_tower(feature)
-            # mask_tower_cat = torch.cat([mask_tower, cls_tower], dim=1)
             mask_code_prediction = self.mask_pred(mask_tower)
-            mask_reg.append(mask_code_prediction)
+            mask_tower_cat = torch.cat([mask_code_prediction, cls_tower, bbox_tower], dim=1)
+            residual_mask = self.residual(mask_tower_cat)
+            mask_reg.append(residual_mask)
 
             # cls_tower_cat = torch.cat([mask_tower, cls_tower], dim=1)
             logits.append(self.cls_logits(cls_tower))
 
-            if self.if_whiten:
-                init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1),
-                                         mask_encoding.dictionary) * mask_encoding.shape_std.view(1, 1, 1, -1) + \
-                            mask_encoding.shape_mean.view(1, 1, 1, -1)
-            else:
-                init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1),
-                                         mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
-            residual_features = torch.cat([cls_tower, bbox_tower, init_mask.permute(0, 3, 1, 2)],
-                                          dim=1)
-            residual_mask = self.residual(residual_features)
-            dtm_residuals.append(residual_mask + init_mask.permute(0, 3, 1, 2))
+            # if self.if_whiten:
+            #     init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1),
+            #                              mask_encoding.dictionary) * mask_encoding.shape_std.view(1, 1, 1, -1) + \
+            #                 mask_encoding.shape_mean.view(1, 1, 1, -1)
+            # else:
+            #     init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1),
+            #                              mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
+            # residual_features = torch.cat([cls_tower, bbox_tower, init_mask.permute(0, 3, 1, 2)],
+            #                               dim=1)
+            # residual_mask = self.residual(residual_features)
+            # dtm_residuals.append(residual_mask + init_mask.permute(0, 3, 1, 2))
 
-        return logits, bbox_reg, ctrness, dtm_residuals, mask_reg
+        # return logits, bbox_reg, ctrness, dtm_residuals, mask_reg
+        return logits, bbox_reg, ctrness, mask_reg
