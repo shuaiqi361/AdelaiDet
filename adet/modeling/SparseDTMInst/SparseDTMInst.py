@@ -111,7 +111,7 @@ class DTInst(nn.Module):
         locations = self.compute_locations(features)
         # logits_pred, reg_pred, ctrness_pred, dtm_residuals, mask_regression = self.DTInst_head(features,
         #                                                                                        self.mask_encoding)
-        logits_pred, reg_pred, ctrness_pred, mask_regression = self.DTInst_head(features, self.mask_encoding)
+        logits_pred, reg_pred, ctrness_pred, mask_regression = self.DTInst_head(features)
 
         outputs = DTInstOutputs(
             images,
@@ -280,12 +280,17 @@ class DTInstHead(nn.Module):
         #     nn.ReLU(),
         #     nn.Conv2d(in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
         # )
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(in_channels * 3, in_channels, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        # )
         self.residual = nn.Sequential(
-            nn.Conv2d(in_channels * 2 + self.num_codes, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels, in_channels * 2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels * 2, in_channels, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
         )
 
         if self.use_gcn_in_mask:
@@ -317,7 +322,7 @@ class DTInstHead(nn.Module):
         bias_value = -math.log((1 - prior_prob) / prior_prob)
         torch.nn.init.constant_(self.cls_logits.bias, bias_value)
 
-    def forward(self, x, mask_encoding):
+    def forward(self, x):
         logits = []
         bbox_reg = []
         ctrness = []
@@ -338,10 +343,11 @@ class DTInstHead(nn.Module):
 
             # Mask Encoding
             mask_tower = self.mask_tower(feature)
-            mask_code_prediction = self.mask_pred(mask_tower)
-            mask_tower_cat = torch.cat([mask_code_prediction, cls_tower, bbox_tower], dim=1)
+            # mask_code_prediction = self.mask_pred(mask_tower)
+            # mask_tower_cat = torch.cat([mask_tower, cls_tower, bbox_tower], dim=1)
+            mask_tower_cat = mask_tower + cls_tower + bbox_tower
             residual_mask = self.residual(mask_tower_cat)
-            mask_reg.append(residual_mask)
+            mask_reg.append(self.mask_pred(residual_mask))
 
             # cls_tower_cat = torch.cat([mask_tower, cls_tower], dim=1)
             logits.append(self.cls_logits(cls_tower))
