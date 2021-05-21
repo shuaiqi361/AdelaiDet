@@ -346,8 +346,9 @@ class DTInstHead(nn.Module):
             # mask_code_prediction = self.mask_pred(mask_tower)
             # mask_tower_cat = torch.cat([mask_tower, cls_tower, bbox_tower], dim=1)
             mask_tower_cat = mask_tower + cls_tower + bbox_tower
+            # mask_tower_cat = mask_tower + cls_tower
             residual_mask = self.residual(mask_tower_cat)
-            mask_reg.append(self.mask_pred(residual_mask + mask_tower))
+            mask_reg.append(self.mask_pred(residual_mask))
 
             # cls_tower_cat = torch.cat([mask_tower, cls_tower], dim=1)
             logits.append(self.cls_logits(cls_tower))
