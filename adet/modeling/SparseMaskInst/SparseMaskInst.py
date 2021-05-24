@@ -265,6 +265,12 @@ class SMInstHead(nn.Module):
             in_channels, 1, kernel_size=3,
             stride=1, padding=1
         )
+        self.residual = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels * 2, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels * 2, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+        )
 
         if self.use_gcn_in_mask:
             self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
@@ -283,7 +289,7 @@ class SMInstHead(nn.Module):
             self.cls_tower, self.bbox_tower,
             self.share_tower, self.cls_logits,
             self.bbox_pred, self.ctrness,
-            self.mask_tower, self.mask_pred
+            self.mask_tower, self.mask_pred, self.residual
         ]:
             for l in modules.modules():
                 if isinstance(l, nn.Conv2d):
@@ -309,6 +315,9 @@ class SMInstHead(nn.Module):
             bbox_tower = self.bbox_tower(feature)
             mask_tower = self.mask_tower(feature)
 
+            mask_tower_cat = mask_tower + cls_tower + bbox_tower
+            residual_mask = self.residual(mask_tower_cat)
+
             logits.append(self.cls_logits(cls_tower))
             ctrness.append(self.ctrness(bbox_tower))
             reg = self.bbox_pred(bbox_tower)
@@ -316,6 +325,6 @@ class SMInstHead(nn.Module):
                 reg = self.scales[l](reg)
             # Note that we use relu, as in the improved SMInst, instead of exp.
             bbox_reg.append(F.relu(reg))
-            mask_reg.append(self.mask_pred(mask_tower))
+            mask_reg.append(self.mask_pred(residual_mask))
 
         return logits, bbox_reg, ctrness, bbox_towers, mask_reg
