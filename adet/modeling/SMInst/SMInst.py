@@ -83,7 +83,7 @@ class SMInst(nn.Module):
         features = [features[f] for f in self.in_features]
         locations = self.compute_locations(features)
         # logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression, mask_activation = self.SMInst_head(features)
-        logits_pred, reg_pred, ctrness_pred, mask_prediction, mask_regression = self.DTInst_head(features, self.mask_encoding)
+        logits_pred, reg_pred, ctrness_pred, mask_prediction, mask_regression = self.SMInst_head(features, self.mask_encoding)
 
         if self.training:
             pre_nms_thresh = self.pre_nms_thresh_train
@@ -91,12 +91,25 @@ class SMInst(nn.Module):
             post_nms_topk = self.post_nms_topk_train
             if not self.flag_parameters:
                 # encoding parameters.
+                # components_path = self.cfg.MODEL.SMInst.PATH_DICTIONARY
+                # parameters = np.load(components_path)
+                # device = torch.device(self.cfg.MODEL.DEVICE)
+                # with torch.no_grad():
+                #     dictionary = nn.Parameter(torch.from_numpy(parameters).float().to(device), requires_grad=False)
+                #     self.mask_encoding.dictionary = dictionary
                 components_path = self.cfg.MODEL.SMInst.PATH_DICTIONARY
                 parameters = np.load(components_path)
+                learned_dict = parameters['shape_basis']
+                shape_mean = parameters['shape_mean']
+                shape_std = parameters['shape_std']
                 device = torch.device(self.cfg.MODEL.DEVICE)
                 with torch.no_grad():
-                    dictionary = nn.Parameter(torch.from_numpy(parameters).float().to(device), requires_grad=False)
+                    dictionary = nn.Parameter(torch.from_numpy(learned_dict).float().to(device), requires_grad=False)
+                    shape_mean = nn.Parameter(torch.from_numpy(shape_mean).float().to(device), requires_grad=False)
+                    shape_std = nn.Parameter(torch.from_numpy(shape_std).float().to(device), requires_grad=False)
                     self.mask_encoding.dictionary = dictionary
+                    self.mask_encoding.shape_mean = shape_mean
+                    self.mask_encoding.shape_std = shape_std
 
                 self.flag_parameters = True
         else:
@@ -177,7 +190,7 @@ class SMInstHead(nn.Module):
         self.num_codes = cfg.MODEL.SMInst.NUM_CODE
         self.use_gcn_in_mask = cfg.MODEL.SMInst.USE_GCN_IN_MASK
         self.gcn_kernel_size = cfg.MODEL.SMInst.GCN_KERNEL_SIZE
-        self.mask_size = cfg.MODEL.STInst.MASK_SIZE
+        self.mask_size = cfg.MODEL.SMInst.MASK_SIZE
         self.if_whiten = cfg.MODEL.SMInst.WHITEN
 
         head_configs = {"cls": (cfg.MODEL.SMInst.NUM_CLS_CONVS,
@@ -280,10 +293,10 @@ class SMInstHead(nn.Module):
                 stride=1, padding=1
             )
 
-        self.mask_active = nn.Conv2d(
-            in_channels, self.num_codes, kernel_size=3,
-            stride=1, padding=1
-        )
+        # self.mask_active = nn.Conv2d(
+        #     in_channels, self.num_codes, kernel_size=3,
+        #     stride=1, padding=1
+        # )
 
         if cfg.MODEL.SMInst.USE_SCALE:
             self.scales = nn.ModuleList([Scale(init_value=1.0) for _ in self.fpn_strides])
@@ -294,7 +307,7 @@ class SMInstHead(nn.Module):
             self.cls_tower, self.bbox_tower,
             self.share_tower, self.cls_logits,
             self.bbox_pred, self.ctrness,
-            self.mask_tower, self.mask_pred, self.mask_active
+            self.mask_tower, self.mask_pred
         ]:
             for l in modules.modules():
                 if isinstance(l, nn.Conv2d):
@@ -333,19 +346,20 @@ class SMInstHead(nn.Module):
             mask_code_prediction = self.mask_pred(mask_tower)
             mask_reg.append(mask_code_prediction)
 
-            if self.if_whiten:
-                init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1),
-                                         mask_encoding.dictionary) * mask_encoding.shape_std.view(1, 1, 1, -1) + \
-                            mask_encoding.shape_mean.view(1, 1, 1, -1)
-            else:
-                init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1),
-                                         mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
+            with torch.no_grad():
+                if self.if_whiten:
+                    init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1).contiguous(),
+                                             mask_encoding.dictionary) * mask_encoding.shape_std.view(1, 1, 1, -1) + \
+                                mask_encoding.shape_mean.view(1, 1, 1, -1)
+                else:
+                    init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1).contiguous(),
+                                             mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
 
             # residual_features = torch.cat([cls_tower, bbox_tower, init_mask.permute(0, 3, 1, 2)],
             #                               dim=1)
-            residual_features = init_mask.permute(0, 3, 1, 2)
+            residual_features = init_mask.permute(0, 3, 1, 2).contiguous()
             residual_mask = 2. * self.residual(residual_features) - 1  # range in [-1, 1] to serve as residuals for the initial masks
-            mask_pred.append(residual_mask + init_mask)
+            mask_pred.append(residual_mask + residual_features)
 
             # mask_reg.append(self.mask_pred(cls_tower))
             # mask_active.append(self.mask_active(cls_tower))
