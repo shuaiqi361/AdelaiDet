@@ -445,8 +445,9 @@ class SMInstOutputs(object):
         ) / num_pos_avg
 
         mask_targets_ = self.mask_encoding.encoder(mask_targets)
-        _, mask_pred_bin = self.mask_encoding.decoder(mask_pred, is_train=True)
+        # _, mask_pred_bin = self.mask_encoding.decoder(mask_pred, is_train=True)
         mask_pred_ = mask_pred_decoded
+        mask_pred_bin = (mask_pred_decoded >= 1) * 1.
 
         # compute the loss for the activation code as binary classification
         # activation_targets = (torch.abs(mask_targets_) > 1e-4) * 1.
