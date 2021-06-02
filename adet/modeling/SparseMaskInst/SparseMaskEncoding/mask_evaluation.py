@@ -18,12 +18,12 @@ def parse_args():
                         type=str)
     parser.add_argument('--dataset', default='coco_2017_val', type=str)
     parser.add_argument('--dictionary', default='/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17/'
-                                                'sparse_shape_dict/Centered_mask_basis_m28_n256_a0.30.npz',
+                                                'sparse_shape_dict/Centered_mask_basis_m28_n512_a0.25.npz',
                         type=str)
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
-    parser.add_argument('--n_codes', default=128, type=int)
-    parser.add_argument('--mask_sparse_alpha', default=0.3, type=float)
+    parser.add_argument('--n_codes', default=512, type=int)
+    parser.add_argument('--mask_sparse_alpha', default=0.25, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     parser.add_argument('--top-code', default=60, type=int)
     parser.add_argument('--if-whiten', default=False, type=bool)
