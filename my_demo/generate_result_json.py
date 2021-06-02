@@ -4,7 +4,7 @@ import glob
 import multiprocessing as mp
 import torch
 import time
-import cv2
+import os
 import json
 from pycocotools.coco import COCO
 from pycocotools import mask as cocomask
@@ -150,6 +150,9 @@ if __name__ == "__main__":
             # )
             result["category_id"] = reverse_id_mapping[category_id]
             seg_results.append(result)
+
+    if not os.path.exists('{}/results'.format(args.result_dir)):
+        os.mkdir('{}/results'.format(args.result_dir))
 
     with open('{}/results/{}_seg_results.json'.format(args.result_dir, args.data_type), 'w') as f_det:
         json.dump(seg_results, f_det)

@@ -51,6 +51,7 @@ class SMInst(nn.Module):
         self.post_nms_topk_train  = cfg.MODEL.SMInst.POST_NMS_TOPK_TRAIN
         self.post_nms_topk_test   = cfg.MODEL.SMInst.POST_NMS_TOPK_TEST
         self.thresh_with_ctr      = cfg.MODEL.SMInst.THRESH_WITH_CTR
+
         # self.thresh_with_active   = cfg.MODEL.SMInst.THRESH_WITH_ACTIVE
         # fmt: on
         self.iou_loss = IOULoss(cfg.MODEL.SMInst.LOC_LOSS_TYPE)
@@ -192,6 +193,7 @@ class SMInstHead(nn.Module):
         self.gcn_kernel_size = cfg.MODEL.SMInst.GCN_KERNEL_SIZE
         self.mask_size = cfg.MODEL.SMInst.MASK_SIZE
         self.if_whiten = cfg.MODEL.SMInst.WHITEN
+        self.mask_refinement_iter = cfg.MODEL.SMInst.MASK_REFINEMENT_ITER
 
         head_configs = {"cls": (cfg.MODEL.SMInst.NUM_CLS_CONVS,
                                 cfg.MODEL.SMInst.USE_DEFORMABLE),
@@ -358,8 +360,13 @@ class SMInstHead(nn.Module):
             # residual_features = torch.cat([cls_tower, bbox_tower, init_mask.permute(0, 3, 1, 2)],
             #                               dim=1)
             residual_features = init_mask.permute(0, 3, 1, 2).contiguous()
-            residual_mask = 2. * self.residual(residual_features) - 1  # range in [-1, 1] to serve as residuals for the initial masks
-            mask_pred.append(residual_mask + residual_features)
+
+            # First iteration
+            for _ in range(self.mask_refinement_iter):
+                residual_mask = 2. * self.residual(residual_features) - 1  # range in [-1, 1] to serve as residuals for the initial masks
+                residual_features = residual_mask + residual_features
+
+            mask_pred.append(residual_features)
 
             # mask_reg.append(self.mask_pred(cls_tower))
             # mask_active.append(self.mask_active(cls_tower))

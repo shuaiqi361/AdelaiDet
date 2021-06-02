@@ -322,6 +322,7 @@ _C.MODEL.SMInst.NUM_VERTEX = 180
 _C.MODEL.SMInst.NUM_CODE = 256
 _C.MODEL.SMInst.POLYGON_SPARSE_ALPHA = 0.1
 _C.MODEL.SMInst.MAX_ISTA_ITER = 70
+_C.MODEL.SMInst.MASK_REFINEMENT_ITER = 1
 # The default path for parameters of mask encoding.
 _C.MODEL.SMInst.PATH_DICTIONARY = "/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling/SMInst/" \
                                   "dictionary/mask_fromMask_basis_m28_n256_a0.10.npy"

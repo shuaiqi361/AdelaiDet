@@ -17,16 +17,16 @@ def parse_args():
     parser.add_argument('--data_root', default='/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17',
                         type=str)
     parser.add_argument('--dataset', default='coco_2017_val', type=str)
-    parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/'
-                                                'modeling/SparseMaskInst/dictionary/Centered_whitened_mask_basis_m28_n128_a0.20.npz',
+    parser.add_argument('--dictionary', default='/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17/'
+                                                'sparse_shape_dict/Centered_mask_basis_m28_n256_a0.30.npz',
                         type=str)
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
     parser.add_argument('--n_codes', default=128, type=int)
-    parser.add_argument('--mask_sparse_alpha', default=0.2, type=float)
+    parser.add_argument('--mask_sparse_alpha', default=0.3, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     parser.add_argument('--top-code', default=60, type=int)
-    parser.add_argument('--if-whiten', default=True, type=bool)
+    parser.add_argument('--if-whiten', default=False, type=bool)
     args = parser.parse_args()
     return args
 
@@ -103,24 +103,26 @@ if __name__ == "__main__":
     print('Overall Kurtosis: ', kur)
 
     # calculate the variance explained by the top 60 codes
-    # all_masks = np.concatenate(all_masks, axis=0)
-    # print('Total number of instances evaluated: ', all_masks.shape)
-    # total_var = np.sum(np.var(all_masks, axis=0))
-    # var_explained = []
-    # print('For each shape: ')
-    # learned_dict = learned_dict.numpy()
-    # for i in range(all_mask_codes.shape[0]):
-    #     idx_codes = np.argsort(abs_codes[i])[::-1][:args.top_code]
-    #     # print('idx shape: ', idx_codes.shape)
-    #     mask_code_ = np.zeros(shape=all_mask_codes[i].shape)
-    #     mask_code_[idx_codes] = 1
-    #     # print('mask_code_ shape: ', mask_code_.shape)
-    #     rec_error = all_masks[i, :] - np.matmul(all_mask_codes[i] * mask_code_, learned_dict)  # keep the top-60 components
-    #     # print('rec_error shape: ', rec_error.shape)
-    #     rec_error = np.sum(rec_error ** 2)
-    #     # exit()
-    #
-    #     var_explained.append(1 - rec_error / total_var)
-    #
-    # print('Total variance: ', total_var)
-    # print('Variance explained: ', np.mean(var_explained))
+    all_masks = np.concatenate(all_masks, axis=0)
+    print('Total number of instances evaluated: ', all_masks.shape)
+    total_var = np.sum(np.var(all_masks, axis=0))
+    var_explained = []
+    print('For each shape: ')
+    learned_dict = learned_dict.numpy()
+    shape_mean = shape_mean.numpy()
+    for i in range(all_mask_codes.shape[0]):
+        # idx_codes = np.argsort(abs_codes[i])[::-1][:args.top_code]
+        # print('idx shape: ', idx_codes.shape)
+        # mask_code_ = np.zeros(shape=all_mask_codes[i].shape)
+        # mask_code_[idx_codes] = 1
+        # print('mask_code_ shape: ', mask_code_.shape)
+        # rec_error = all_masks[i, :] - np.matmul(all_mask_codes[i] * mask_code_, learned_dict)  # keep the top-60 components
+        rec_error = all_masks[i, :] - (np.matmul(all_mask_codes[i], learned_dict) + shape_mean)  # keep all the components
+        # print('rec_error shape: ', rec_error.shape)
+        rec_error = np.sum(rec_error ** 2)
+        # exit()
+
+        var_explained.append(1 - rec_error / total_var)
+
+    print('Total variance: ', total_var)
+    print('Variance explained: ', np.mean(var_explained))
