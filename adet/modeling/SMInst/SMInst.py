@@ -279,7 +279,7 @@ class SMInstHead(nn.Module):
         )
 
         self.residual = nn.Sequential(
-            nn.Conv2d(self.mask_size ** 2, in_channels, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0),
             nn.ReLU(),
             nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
@@ -364,6 +364,7 @@ class SMInstHead(nn.Module):
 
             #Iterations for refinement
             for _ in range(self.mask_refinement_iter):
+                residual_features = torch.cat([cls_tower, bbox_tower, residual_features], dim=1)
                 residual_mask = 2. * self.residual(residual_features) - 1  # range in [-1, 1] to serve as residuals for the initial masks
                 residual_features = residual_mask + residual_features
                 iter_output.append(residual_features)
