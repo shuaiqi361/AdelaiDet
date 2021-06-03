@@ -360,7 +360,7 @@ class SMInstHead(nn.Module):
             # residual_features = torch.cat([cls_tower, bbox_tower, init_mask.permute(0, 3, 1, 2)],
             #                               dim=1)
             residual_features = init_mask.permute(0, 3, 1, 2).contiguous()
-            iter_output = [residual_features]
+            iter_output = []
 
             #Iterations for refinement
             for _ in range(self.mask_refinement_iter):
@@ -368,7 +368,10 @@ class SMInstHead(nn.Module):
                 residual_features = residual_mask + residual_features
                 iter_output.append(residual_features)
 
-            mask_pred.append(iter_output)
+            if self.mask_refinement_iter < 1:
+                mask_pred.append([residual_features])
+            else:
+                mask_pred.append(iter_output)
 
             # mask_reg.append(self.mask_pred(cls_tower))
             # mask_active.append(self.mask_active(cls_tower))

@@ -186,7 +186,7 @@ class DTInstHead(nn.Module):
         self.use_gcn_in_mask = cfg.MODEL.DTInst.USE_GCN_IN_MASK
         self.gcn_kernel_size = cfg.MODEL.DTInst.GCN_KERNEL_SIZE
         self.mask_size = cfg.MODEL.DTInst.MASK_SIZE
-        self.if_whiten = cfg.MODEL.DMInst.WHITEN
+        self.if_whiten = cfg.MODEL.DTInst.WHITEN
 
         head_configs = {"cls": (cfg.MODEL.DTInst.NUM_CLS_CONVS,
                                 cfg.MODEL.DTInst.USE_DEFORMABLE),

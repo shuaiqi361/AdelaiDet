@@ -421,7 +421,7 @@ class SMInstOutputs(object):
         reg_targets = reg_targets[pos_inds]
         ctrness_pred = ctrness_pred[pos_inds]
         mask_pred = mask_pred[pos_inds]
-        for i in len(mask_pred_decoded_list):
+        for i in range(len(mask_pred_decoded_list)):
             mask_pred_decoded_list[i] = mask_pred_decoded_list[i][pos_inds]
         # mask_activation_pred = mask_activation_pred[pos_inds]
 
@@ -661,13 +661,19 @@ class SMInstOutputs(object):
         #         for x in self.mask_activation
         #     ], dim=0, )
 
+        num_levels = len(self.mask_prediction)
+        num_outputs = len(self.mask_prediction[0])
         mask_prediction_list = []
-        for mp in self.mask_prediction:
+        for m in range(num_outputs):
+            temp_ = []
+            for n in range(num_levels):
+                temp_.append(self.mask_prediction[n][m])
+
             mask_prediction = cat(
                 [
                     # Reshape: (N, D, Hi, Wi) -> (N, Hi, Wi, D) -> (N*Hi*Wi, D)
                     x.permute(0, 2, 3, 1).reshape(-1, self.mask_size ** 2)
-                    for x in mp
+                    for x in temp_
                 ], dim=0, )
             mask_prediction_list.append(mask_prediction)
 
@@ -701,7 +707,9 @@ class SMInstOutputs(object):
 
     def predict_proposals(self):
         sampled_boxes = []
-        mask_prediction = self.mask_prediction[-1]  # only use the last output
+        mask_prediction = []  # only use the last output
+        for mp in self.mask_prediction:
+            mask_prediction.append(mp[-1])
 
         bundle = (
             self.locations, self.logits_pred,
