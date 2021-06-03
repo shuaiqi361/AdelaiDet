@@ -378,7 +378,7 @@ class SMInstHead(nn.Module):
             # Mask Encoding
             mask_tower = self.mask_tower(feature)
             mask_code_features = torch.cat([cls_tower, mask_tower], dim=1)
-            mask_code_fused_features = torch.cat([mask_code_features, self.mask_fusion(mask_code_features)], dim=1)
+            mask_code_fused_features = torch.cat([mask_tower, self.mask_fusion(mask_code_features)], dim=1)
             mask_code_prediction = self.mask_pred(mask_code_fused_features)
             mask_reg.append(mask_code_prediction)
 
