@@ -364,8 +364,8 @@ class SMInstHead(nn.Module):
 
             #Iterations for refinement
             for _ in range(self.mask_refinement_iter):
-                residual_features = torch.cat([cls_tower, bbox_tower, residual_features], dim=1)
-                residual_mask = 2. * self.residual(residual_features) - 1  # range in [-1, 1] to serve as residuals for the initial masks
+                fused_features = torch.cat([cls_tower, bbox_tower, residual_features], dim=1)
+                residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1] to serve as residuals for the initial masks
                 residual_features = residual_mask + residual_features
                 iter_output.append(residual_features)
 
