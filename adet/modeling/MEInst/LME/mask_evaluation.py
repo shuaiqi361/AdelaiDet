@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument('--whiten', default=True, type=bool)
     parser.add_argument('--sigmoid', default=True, type=bool)
     parser.add_argument('--batch-size', default=1000, type=int)
-    parser.add_argument('--top-code', default=1, type=int)
+    parser.add_argument('--top-code', default=60, type=int)
     args = parser.parse_args()
     return args
 

@@ -278,21 +278,53 @@ class SMInstHead(nn.Module):
             stride=1, padding=1
         )
 
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+        #     nn.Sigmoid(),
+        # )
         self.residual = nn.Sequential(
-            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(self.mask_size ** 2 + in_channels, in_channels * 2, kernel_size=1, stride=1, padding=0),
             nn.ReLU(),
-            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
             nn.ReLU(),
-            nn.Conv2d(in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
             nn.Sigmoid(),
         )
 
+        self.mask_fusion = nn.Sequential(
+            nn.Conv2d(in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
+            nn.MaxPool2d(kernel_size=3, stride=1, padding=1),
+        )
+
+        # if self.use_gcn_in_mask:
+        #     self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
+        # else:
+        #     self.mask_pred = nn.Conv2d(
+        #         in_channels, self.num_codes, kernel_size=3,
+        #         stride=1, padding=1
+        #     )
+
         if self.use_gcn_in_mask:
-            self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
+            self.mask_pred = nn.Sequential(
+                nn.Conv2d(in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
+                nn.ReLU(),
+                GCN(in_channels, self.num_codes, k=self.gcn_kernel_size),
+            )
         else:
-            self.mask_pred = nn.Conv2d(
-                in_channels, self.num_codes, kernel_size=3,
-                stride=1, padding=1
+            self.mask_pred = nn.Sequential(
+                nn.Conv2d(in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(in_channels, self.num_codes, kernel_size=1, stride=1, padding=0)
             )
 
         # self.mask_active = nn.Conv2d(
@@ -345,7 +377,9 @@ class SMInstHead(nn.Module):
 
             # Mask Encoding
             mask_tower = self.mask_tower(feature)
-            mask_code_prediction = self.mask_pred(mask_tower)
+            mask_code_features = torch.cat([cls_tower, mask_tower], dim=1)
+            mask_code_fused_features = torch.cat([mask_code_features, self.mask_fusion(mask_code_features)], dim=1)
+            mask_code_prediction = self.mask_pred(mask_code_fused_features)
             mask_reg.append(mask_code_prediction)
 
             with torch.no_grad():
@@ -364,7 +398,7 @@ class SMInstHead(nn.Module):
 
             #Iterations for refinement
             for _ in range(self.mask_refinement_iter):
-                fused_features = torch.cat([cls_tower, bbox_tower, residual_features], dim=1)
+                fused_features = torch.cat([bbox_tower, residual_features], dim=1)
                 residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1] to serve as residuals for the initial masks
                 residual_features = residual_mask + residual_features
                 iter_output.append(residual_features)
