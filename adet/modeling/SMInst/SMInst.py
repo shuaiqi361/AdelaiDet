@@ -287,19 +287,19 @@ class SMInstHead(nn.Module):
         #     nn.Sigmoid(),
         # )
         self.residual = nn.Sequential(
-            nn.Conv2d(self.mask_size ** 2 + in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(self.mask_size ** 2 + in_channels, in_channels * 2, kernel_size=1, stride=1, padding=0),
             nn.ReLU(),
-            nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
             nn.Sigmoid(),
         )
 
         self.mask_fusion = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(in_channels, in_channels * 2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
-            nn.MaxPool2d(kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels * 2, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.ReLU()
         )
 
         # if self.use_gcn_in_mask:
@@ -312,17 +312,13 @@ class SMInstHead(nn.Module):
 
         if self.use_gcn_in_mask:
             self.mask_pred = nn.Sequential(
-                nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
-                nn.ReLU(),
-                nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
+                nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
                 nn.ReLU(),
                 GCN(in_channels, self.num_codes, k=self.gcn_kernel_size),
             )
         else:
             self.mask_pred = nn.Sequential(
-                nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
-                nn.ReLU(),
-                nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
+                nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
                 nn.ReLU(),
                 nn.Conv2d(in_channels, self.num_codes, kernel_size=1, stride=1, padding=0)
             )
@@ -377,8 +373,8 @@ class SMInstHead(nn.Module):
 
             # Mask Encoding
             mask_tower = self.mask_tower(feature)
-            mask_code_features = cls_tower + mask_tower
-            mask_code_fused_features = mask_tower + self.mask_fusion(mask_code_features)
+            mask_code_features = cls_tower + mask_tower + bbox_tower
+            mask_code_fused_features = self.mask_fusion(mask_code_features)
             mask_code_prediction = self.mask_pred(mask_code_fused_features)
             mask_reg.append(mask_code_prediction)
 
