@@ -312,7 +312,7 @@ class SMInstHead(nn.Module):
 
         if self.use_gcn_in_mask:
             self.mask_pred = nn.Sequential(
-                nn.Conv2d(in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0),
+                nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
                 nn.ReLU(),
                 nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
                 nn.ReLU(),
@@ -320,7 +320,7 @@ class SMInstHead(nn.Module):
             )
         else:
             self.mask_pred = nn.Sequential(
-                nn.Conv2d(in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0),
+                nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
                 nn.ReLU(),
                 nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0),
                 nn.ReLU(),
@@ -378,7 +378,7 @@ class SMInstHead(nn.Module):
             # Mask Encoding
             mask_tower = self.mask_tower(feature)
             mask_code_features = cls_tower + mask_tower
-            mask_code_fused_features = torch.cat([mask_tower, self.mask_fusion(mask_code_features)], dim=1)
+            mask_code_fused_features = mask_tower + self.mask_fusion(mask_code_features)
             mask_code_prediction = self.mask_pred(mask_code_fused_features)
             mask_reg.append(mask_code_prediction)
 
