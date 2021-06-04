@@ -434,3 +434,98 @@ _C.MODEL.DTInst.GCN_KERNEL_SIZE = 9
 # Whether to compute loss on original mask (binary mask).
 _C.MODEL.DTInst.LOSS_ON_MASK = False
 _C.MODEL.DTInst.LOSS_ON_CODE = True
+
+
+# ---------------------------------------------------------------------------- #
+# SMUPInst Head Configuration, with final mask upsampling
+# ---------------------------------------------------------------------------- #
+_C.MODEL.SMUPInst = CN()
+
+# This is the number of foreground classes.
+_C.MODEL.SMUPInst.NUM_CLASSES = 80
+_C.MODEL.SMUPInst.IN_FEATURES = ["p3", "p4", "p5", "p6", "p7"]
+_C.MODEL.SMUPInst.FPN_STRIDES = [8, 16, 32, 64, 128]
+_C.MODEL.SMUPInst.PRIOR_PROB = 0.01
+_C.MODEL.SMUPInst.INFERENCE_TH_TRAIN = 0.05
+_C.MODEL.SMUPInst.INFERENCE_TH_TEST = 0.05
+_C.MODEL.SMUPInst.NMS_TH = 0.6
+_C.MODEL.SMUPInst.PRE_NMS_TOPK_TRAIN = 1000
+_C.MODEL.SMUPInst.PRE_NMS_TOPK_TEST = 1000
+_C.MODEL.SMUPInst.POST_NMS_TOPK_TRAIN = 100
+_C.MODEL.SMUPInst.POST_NMS_TOPK_TEST = 100
+_C.MODEL.SMUPInst.TOP_LEVELS = 2
+_C.MODEL.SMUPInst.NORM = "GN"  # Support GN or none
+_C.MODEL.SMUPInst.USE_SCALE = True
+
+# Multiply centerness before threshold
+# This will affect the final performance by about 0.05 AP but save some time
+_C.MODEL.SMUPInst.THRESH_WITH_CTR = True
+
+# Focal loss parameters
+_C.MODEL.SMUPInst.LOSS_ALPHA = 0.25
+_C.MODEL.SMUPInst.LOSS_GAMMA = 2.0
+_C.MODEL.SMUPInst.SIZES_OF_INTEREST = [64, 128, 256, 512]
+_C.MODEL.SMUPInst.USE_RELU = True
+_C.MODEL.SMUPInst.USE_DEFORMABLE = False
+_C.MODEL.SMUPInst.LAST_DEFORMABLE = False
+_C.MODEL.SMUPInst.TYPE_DEFORMABLE = "DCNv2"  # or DCNv2.
+
+# the number of convolutions used in the cls and bbox tower
+_C.MODEL.SMUPInst.NUM_CLS_CONVS = 4
+_C.MODEL.SMUPInst.NUM_BOX_CONVS = 4
+_C.MODEL.SMUPInst.NUM_SHARE_CONVS = 0
+_C.MODEL.SMUPInst.CENTER_SAMPLE = True
+_C.MODEL.SMUPInst.POS_RADIUS = 1.5
+_C.MODEL.SMUPInst.LOC_LOSS_TYPE = 'giou'
+
+# ---------------------------------------------------------------------------- #
+# Sparse Shape Encoding for Instance Segmentation
+# ---------------------------------------------------------------------------- #
+# Whether to use mask branch.
+_C.MODEL.SMUPInst.MASK_ON = True
+# IOU overlap ratios [IOU_THRESHOLD]
+# Overlap threshold for an RoI to be considered background (if < IOU_THRESHOLD)
+# Overlap threshold for an RoI to be considered foreground (if >= IOU_THRESHOLD)
+_C.MODEL.SMUPInst.IOU_THRESHOLDS = [0.5]
+_C.MODEL.SMUPInst.IOU_LABELS = [0, 1]
+# Whether to use class_agnostic or class_specific.
+_C.MODEL.SMUPInst.AGNOSTIC = True
+# Some operations in mask encoding.
+_C.MODEL.SMUPInst.WHITEN = False
+
+# The number of convolutions used in the mask tower.
+_C.MODEL.SMUPInst.NUM_MASK_CONVS = 4
+
+# The dim of mask before/after mask encoding.
+_C.MODEL.SMUPInst.DECODE_MASK_SIZE = 28
+_C.MODEL.SMUPInst.OUTPUT_MASK_SIZE = 56
+_C.MODEL.SMUPInst.MASK_SPARSE_ALPHA = 0.1
+_C.MODEL.SMUPInst.MASK_SPARSE_WEIGHT = 0.0
+_C.MODEL.SMUPInst.MASK_LOSS_WEIGHT = 1.0
+_C.MODEL.SMUPInst.SPARSITY_LOSS_TYPE = 'L1'
+_C.MODEL.SMUPInst.SPARSITY_KL_RHO = 0.5
+
+# The dim for sparse shape encoding
+_C.MODEL.SMUPInst.NUM_VERTEX = 180
+_C.MODEL.SMUPInst.NUM_CODE = 256
+_C.MODEL.SMUPInst.POLYGON_SPARSE_ALPHA = 0.1
+_C.MODEL.SMUPInst.MAX_ISTA_ITER = 70
+_C.MODEL.SMUPInst.MASK_REFINEMENT_ITER = 1
+# The default path for parameters of mask encoding.
+_C.MODEL.SMUPInst.PATH_DICTIONARY = "/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling/SMInst/" \
+                                  "dictionary/mask_fromMask_basis_m28_n256_a0.10.npy"
+# An indicator for encoding parameters loading during training.
+_C.MODEL.SMUPInst.FLAG_PARAMETERS = False
+# The loss for mask branch, can be mse now.
+_C.MODEL.SMUPInst.MASK_LOSS_TYPE = ["mse", "cosine", "mask_dice"]
+_C.MODEL.SMUPInst.SHAPE_LOSS_TYPE = "piou"
+
+# Whether to use gcn in mask prediction.
+# Large Kernel Matters -- https://arxiv.org/abs/1703.02719
+_C.MODEL.SMUPInst.USE_GCN_IN_MASK = False
+_C.MODEL.SMUPInst.GCN_KERNEL_SIZE = 9
+# Whether to compute loss on original mask (binary mask).
+_C.MODEL.SMUPInst.LOSS_ON_MASK = True
+_C.MODEL.SMUPInst.LOSS_ON_CODE = True
+
+

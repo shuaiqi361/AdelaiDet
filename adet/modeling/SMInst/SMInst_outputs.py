@@ -736,7 +736,7 @@ class SMInstOutputs(object):
         num_images = len(boxlists)
         for i in range(num_images):
             per_image_masks = boxlists[i].pred_masks
-            boxlists[i].pred_codes = per_image_masks
+            # boxlists[i].pred_codes = per_image_masks
             # per_image_masks = self.mask_encoding.decoder(per_image_masks, is_train=False)
             per_image_masks = torch.clamp(per_image_masks, min=0.001, max=0.999)
             per_image_masks = per_image_masks.view(-1, 1, self.mask_size, self.mask_size)
@@ -757,8 +757,8 @@ class SMInstOutputs(object):
         box_regression = box_regression.reshape(N, -1, 4)
         ctrness = ctrness.view(N, 1, H, W).permute(0, 2, 3, 1)
         ctrness = ctrness.reshape(N, -1).sigmoid()
-        # mask_regression = mask_regression.view(N, self.num_codes, H, W).permute(0, 2, 3, 1)
-        # mask_regression = mask_regression.reshape(N, -1, self.num_codes)
+        mask_regression = mask_regression.view(N, self.num_codes, H, W).permute(0, 2, 3, 1)
+        mask_regression = mask_regression.reshape(N, -1, self.num_codes)
         mask_prediction = mask_prediction.view(N, self.mask_size ** 2, H, W).permute(0, 2, 3, 1)
         mask_prediction = mask_prediction.reshape(N, -1, self.mask_size ** 2)
 
@@ -788,8 +788,8 @@ class SMInstOutputs(object):
             per_box_regression = per_box_regression[per_box_loc]
             per_locations = locations[per_box_loc]
 
-            # per_box_mask = mask_regression[i]
-            # per_box_mask = per_box_mask[per_box_loc]
+            per_box_code = mask_regression[i]
+            per_box_code = per_box_code[per_box_loc]
             per_box_mask = mask_prediction[i]
             per_box_mask = per_box_mask[per_box_loc]
 
@@ -802,6 +802,7 @@ class SMInstOutputs(object):
                 per_box_regression = per_box_regression[top_k_indices]
                 per_locations = per_locations[top_k_indices]
                 per_box_mask = per_box_mask[top_k_indices]
+                per_box_code = per_box_code[top_k_indices]
 
             detections = torch.stack([
                 per_locations[:, 0] - per_box_regression[:, 0],
@@ -816,6 +817,7 @@ class SMInstOutputs(object):
             boxlist.pred_classes = per_class
             boxlist.locations = per_locations
             boxlist.pred_masks = per_box_mask
+            boxlist.pred_codes = per_box_code
 
             results.append(boxlist)
 

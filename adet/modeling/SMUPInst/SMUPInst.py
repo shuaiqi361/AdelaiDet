@@ -82,7 +82,8 @@ class SMUPInst(nn.Module):
         """
         features = [features[f] for f in self.in_features]
         locations = self.compute_locations(features)
-        logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression = self.SMUPInst_head(features)
+        # logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression = self.SMUPInst_head(features)
+        logits_pred, reg_pred, ctrness_pred, mask_prediction, mask_regression = self.SMUPInst_head(features, self.mask_encoding)
 
         if self.training:
             pre_nms_thresh = self.pre_nms_thresh_train
@@ -117,6 +118,7 @@ class SMUPInst(nn.Module):
             reg_pred,
             ctrness_pred,
             mask_regression,
+            mask_prediction,
             self.mask_encoding,
             self.focal_loss_alpha,
             self.focal_loss_gamma,
@@ -182,6 +184,9 @@ class SMUPInstHead(nn.Module):
         self.num_codes = cfg.MODEL.SMUPInst.NUM_CODE
         self.use_gcn_in_mask = cfg.MODEL.SMUPInst.USE_GCN_IN_MASK
         self.gcn_kernel_size = cfg.MODEL.SMUPInst.GCN_KERNEL_SIZE
+        self.decode_mask_size = cfg.MODEL.SMUPInst.DECODE_MASK_SIZE
+        self.output_mask_size = cfg.MODEL.SMUPInst.OUTPUT_MASK_SIZE
+        self.if_whiten = cfg.MODEL.SMInst.WHITEN
 
         head_configs = {"cls": (cfg.MODEL.SMUPInst.NUM_CLS_CONVS,
                                 cfg.MODEL.SMUPInst.USE_DEFORMABLE),
@@ -272,6 +277,13 @@ class SMUPInstHead(nn.Module):
             nn.ReLU(),
         )
 
+        self.upsample = nn.Sequential(
+            nn.Conv2d(in_channels * 2 + self.decode_mask_size ** 2, self.decode_mask_size ** 2, kernel_size=1, stride=1, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(self.decode_mask_size ** 2, self.output_mask_size ** 2, kernel_size=1, stride=1, padding=0),
+            nn.ReLU(),
+        )
+
         if self.use_gcn_in_mask:
             self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
         else:
@@ -289,7 +301,7 @@ class SMUPInstHead(nn.Module):
             self.cls_tower, self.bbox_tower,
             self.share_tower, self.cls_logits,
             self.bbox_pred, self.ctrness,
-            self.mask_tower, self.mask_pred, self.residual
+            self.mask_tower, self.mask_pred, self.residual, self.upsample
         ]:
             for l in modules.modules():
                 if isinstance(l, nn.Conv2d):
@@ -301,13 +313,14 @@ class SMUPInstHead(nn.Module):
         bias_value = -math.log((1 - prior_prob) / prior_prob)
         torch.nn.init.constant_(self.cls_logits.bias, bias_value)
 
-    def forward(self, x):
+    def forward(self, x, mask_encoding):
         logits = []
         bbox_reg = []
         ctrness = []
         bbox_towers = []
         mask_reg = []
-        mask_active = []
+        mask_pred = []  # this is the actual masks
+
         # mask_tower_interm_outputs = []
         for l, feature in enumerate(x):
             feature = self.share_tower(feature)
@@ -315,7 +328,8 @@ class SMUPInstHead(nn.Module):
             bbox_tower = self.bbox_tower(feature)
             mask_tower = self.mask_tower(feature)
 
-            mask_tower_cat = mask_tower + cls_tower + bbox_tower
+            # mask_tower_cat = mask_tower + cls_tower + bbox_tower
+            mask_tower_cat = torch.cat([mask_tower, cls_tower, bbox_tower], dim=1)
             residual_mask = self.residual(mask_tower_cat)
 
             logits.append(self.cls_logits(cls_tower))
@@ -325,6 +339,20 @@ class SMUPInstHead(nn.Module):
                 reg = self.scales[l](reg)
             # Note that we use relu, as in the improved SMUPInst, instead of exp.
             bbox_reg.append(F.relu(reg))
-            mask_reg.append(self.mask_pred(residual_mask))
+            mask_code_prediction = self.mask_pred(residual_mask)
+            mask_reg.append(mask_code_prediction)
 
-        return logits, bbox_reg, ctrness, bbox_towers, mask_reg
+            with torch.no_grad():
+                if self.if_whiten:
+                    init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1).contiguous(),
+                                             mask_encoding.dictionary) * mask_encoding.shape_std.view(1, 1, 1, -1) + \
+                                mask_encoding.shape_mean.view(1, 1, 1, -1)
+                else:
+                    init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1).contiguous(),
+                                             mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
+
+            init_mask = init_mask.permute(0, 3, 1, 2).contiguous()
+            upsampled_mask = self.upsample(torch.cat([init_mask, mask_tower, bbox_tower], dim=1))
+            mask_pred.append(upsampled_mask)
+
+        return logits, bbox_reg, ctrness, mask_pred, mask_reg
