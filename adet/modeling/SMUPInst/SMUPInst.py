@@ -9,10 +9,11 @@ from detectron2.layers import ShapeSpec
 from detectron2.modeling.proposal_generator.build import PROPOSAL_GENERATOR_REGISTRY
 
 from adet.layers import DFConv2d, IOULoss, NaiveGroupNorm, GCN
-from .SMInst_outputs import SMInstOutputs
-from .SMEncoding import SparseMaskEncoding
+from .SMUPInst_output import SMUPInstOutputs
+from .SparseMaskeEncode import SparseMaskEncoding
 
-__all__ = ["SMInst"]
+
+__all__ = ["SMUPInst"]
 
 INF = 100000000
 
@@ -27,45 +28,43 @@ class Scale(nn.Module):
 
 
 @PROPOSAL_GENERATOR_REGISTRY.register()
-class SMInst(nn.Module):
+class SMUPInst(nn.Module):
     """
     Implement Sparse Mask Encoding method.
     """
-
     def __init__(self, cfg, input_shape: Dict[str, ShapeSpec]):
         super().__init__()
         # fmt: off
-        self.cfg = cfg
-        self.in_features = cfg.MODEL.SMInst.IN_FEATURES
-        self.fpn_strides = cfg.MODEL.SMInst.FPN_STRIDES
-        self.focal_loss_alpha = cfg.MODEL.SMInst.LOSS_ALPHA
-        self.focal_loss_gamma = cfg.MODEL.SMInst.LOSS_GAMMA
-        self.center_sample = cfg.MODEL.SMInst.CENTER_SAMPLE
-        self.strides = cfg.MODEL.SMInst.FPN_STRIDES
-        self.radius = cfg.MODEL.SMInst.POS_RADIUS
-        self.pre_nms_thresh_train = cfg.MODEL.SMInst.INFERENCE_TH_TRAIN
-        self.pre_nms_thresh_test = cfg.MODEL.SMInst.INFERENCE_TH_TEST
-        self.pre_nms_topk_train = cfg.MODEL.SMInst.PRE_NMS_TOPK_TRAIN
-        self.pre_nms_topk_test = cfg.MODEL.SMInst.PRE_NMS_TOPK_TEST
-        self.nms_thresh = cfg.MODEL.SMInst.NMS_TH
-        self.post_nms_topk_train = cfg.MODEL.SMInst.POST_NMS_TOPK_TRAIN
-        self.post_nms_topk_test = cfg.MODEL.SMInst.POST_NMS_TOPK_TEST
-        self.thresh_with_ctr = cfg.MODEL.SMInst.THRESH_WITH_CTR
+        self.cfg                  = cfg
+        self.in_features          = cfg.MODEL.SMUPInst.IN_FEATURES
+        self.fpn_strides          = cfg.MODEL.SMUPInst.FPN_STRIDES
+        self.focal_loss_alpha     = cfg.MODEL.SMUPInst.LOSS_ALPHA
+        self.focal_loss_gamma     = cfg.MODEL.SMUPInst.LOSS_GAMMA
+        self.center_sample        = cfg.MODEL.SMUPInst.CENTER_SAMPLE
+        self.strides              = cfg.MODEL.SMUPInst.FPN_STRIDES
+        self.radius               = cfg.MODEL.SMUPInst.POS_RADIUS
+        self.pre_nms_thresh_train = cfg.MODEL.SMUPInst.INFERENCE_TH_TRAIN
+        self.pre_nms_thresh_test  = cfg.MODEL.SMUPInst.INFERENCE_TH_TEST
+        self.pre_nms_topk_train   = cfg.MODEL.SMUPInst.PRE_NMS_TOPK_TRAIN
+        self.pre_nms_topk_test    = cfg.MODEL.SMUPInst.PRE_NMS_TOPK_TEST
+        self.nms_thresh           = cfg.MODEL.SMUPInst.NMS_TH
+        self.post_nms_topk_train  = cfg.MODEL.SMUPInst.POST_NMS_TOPK_TRAIN
+        self.post_nms_topk_test   = cfg.MODEL.SMUPInst.POST_NMS_TOPK_TEST
+        self.thresh_with_ctr      = cfg.MODEL.SMUPInst.THRESH_WITH_CTR
 
-        # self.thresh_with_active   = cfg.MODEL.SMInst.THRESH_WITH_ACTIVE
         # fmt: on
-        self.iou_loss = IOULoss(cfg.MODEL.SMInst.LOC_LOSS_TYPE)
+        self.iou_loss = IOULoss(cfg.MODEL.SMUPInst.LOC_LOSS_TYPE)
         # generate sizes of interest
         soi = []
         prev_size = -1
-        for s in cfg.MODEL.SMInst.SIZES_OF_INTEREST:
+        for s in cfg.MODEL.SMUPInst.SIZES_OF_INTEREST:
             soi.append([prev_size, s])
             prev_size = s
         soi.append([prev_size, INF])
         self.sizes_of_interest = soi
-        self.SMInst_head = SMInstHead(cfg, [input_shape[f] for f in self.in_features])
+        self.SMUPInst_head = SMUPInstHead(cfg, [input_shape[f] for f in self.in_features])
 
-        self.flag_parameters = cfg.MODEL.SMInst.FLAG_PARAMETERS
+        self.flag_parameters = cfg.MODEL.SMUPInst.FLAG_PARAMETERS
         self.mask_encoding = SparseMaskEncoding(cfg)
 
     def forward(self, images, features, gt_instances):
@@ -83,9 +82,7 @@ class SMInst(nn.Module):
         """
         features = [features[f] for f in self.in_features]
         locations = self.compute_locations(features)
-        # logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression, mask_activation = self.SMInst_head(features)
-        logits_pred, reg_pred, ctrness_pred, mask_prediction, mask_regression = self.SMInst_head(features,
-                                                                                                 self.mask_encoding)
+        logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression = self.SMUPInst_head(features)
 
         if self.training:
             pre_nms_thresh = self.pre_nms_thresh_train
@@ -93,13 +90,7 @@ class SMInst(nn.Module):
             post_nms_topk = self.post_nms_topk_train
             if not self.flag_parameters:
                 # encoding parameters.
-                # components_path = self.cfg.MODEL.SMInst.PATH_DICTIONARY
-                # parameters = np.load(components_path)
-                # device = torch.device(self.cfg.MODEL.DEVICE)
-                # with torch.no_grad():
-                #     dictionary = nn.Parameter(torch.from_numpy(parameters).float().to(device), requires_grad=False)
-                #     self.mask_encoding.dictionary = dictionary
-                components_path = self.cfg.MODEL.SMInst.PATH_DICTIONARY
+                components_path = self.cfg.MODEL.SMUPInst.PATH_DICTIONARY
                 parameters = np.load(components_path)
                 learned_dict = parameters['shape_basis']
                 shape_mean = parameters['shape_mean']
@@ -119,14 +110,13 @@ class SMInst(nn.Module):
             pre_nms_topk = self.pre_nms_topk_test
             post_nms_topk = self.post_nms_topk_test
 
-        outputs = SMInstOutputs(
+        outputs = SMUPInstOutputs(
             images,
             locations,
             logits_pred,
             reg_pred,
             ctrness_pred,
             mask_regression,
-            mask_prediction,
             self.mask_encoding,
             self.focal_loss_alpha,
             self.focal_loss_gamma,
@@ -135,7 +125,7 @@ class SMInst(nn.Module):
             self.sizes_of_interest,
             self.strides,
             self.radius,
-            self.SMInst_head.num_classes,
+            self.SMUPInst_head.num_classes,
             pre_nms_thresh,
             pre_nms_topk,
             self.nms_thresh,
@@ -180,34 +170,31 @@ class SMInst(nn.Module):
         return locations
 
 
-class SMInstHead(nn.Module):
+class SMUPInstHead(nn.Module):
     def __init__(self, cfg, input_shape: List[ShapeSpec]):
         """
         Arguments:
             in_channels (int): number of channels of the input feature
         """
         super().__init__()
-        self.num_classes = cfg.MODEL.SMInst.NUM_CLASSES
-        self.fpn_strides = cfg.MODEL.SMInst.FPN_STRIDES
-        self.num_codes = cfg.MODEL.SMInst.NUM_CODE
-        self.use_gcn_in_mask = cfg.MODEL.SMInst.USE_GCN_IN_MASK
-        self.gcn_kernel_size = cfg.MODEL.SMInst.GCN_KERNEL_SIZE
-        self.mask_size = cfg.MODEL.SMInst.MASK_SIZE
-        self.if_whiten = cfg.MODEL.SMInst.WHITEN
-        self.mask_refinement_iter = cfg.MODEL.SMInst.MASK_REFINEMENT_ITER
+        self.num_classes = cfg.MODEL.SMUPInst.NUM_CLASSES
+        self.fpn_strides = cfg.MODEL.SMUPInst.FPN_STRIDES
+        self.num_codes = cfg.MODEL.SMUPInst.NUM_CODE
+        self.use_gcn_in_mask = cfg.MODEL.SMUPInst.USE_GCN_IN_MASK
+        self.gcn_kernel_size = cfg.MODEL.SMUPInst.GCN_KERNEL_SIZE
 
-        head_configs = {"cls": (cfg.MODEL.SMInst.NUM_CLS_CONVS,
-                                cfg.MODEL.SMInst.USE_DEFORMABLE),
-                        "bbox": (cfg.MODEL.SMInst.NUM_BOX_CONVS,
-                                 cfg.MODEL.SMInst.USE_DEFORMABLE),
-                        "share": (cfg.MODEL.SMInst.NUM_SHARE_CONVS,
-                                  cfg.MODEL.SMInst.USE_DEFORMABLE),
-                        "mask": (cfg.MODEL.SMInst.NUM_MASK_CONVS,
-                                 cfg.MODEL.SMInst.USE_DEFORMABLE)}
+        head_configs = {"cls": (cfg.MODEL.SMUPInst.NUM_CLS_CONVS,
+                                cfg.MODEL.SMUPInst.USE_DEFORMABLE),
+                        "bbox": (cfg.MODEL.SMUPInst.NUM_BOX_CONVS,
+                                 cfg.MODEL.SMUPInst.USE_DEFORMABLE),
+                        "share": (cfg.MODEL.SMUPInst.NUM_SHARE_CONVS,
+                                  cfg.MODEL.SMUPInst.USE_DEFORMABLE),
+                        "mask": (cfg.MODEL.SMUPInst.NUM_MASK_CONVS,
+                                 cfg.MODEL.SMUPInst.USE_DEFORMABLE)}
 
-        self.type_deformable = cfg.MODEL.SMInst.TYPE_DEFORMABLE
-        self.last_deformable = cfg.MODEL.SMInst.LAST_DEFORMABLE
-        self.norm = None if cfg.MODEL.SMInst.NORM == "none" else cfg.MODEL.SMInst.NORM
+        self.type_deformable = cfg.MODEL.SMUPInst.TYPE_DEFORMABLE
+        self.last_deformable = cfg.MODEL.SMUPInst.LAST_DEFORMABLE
+        self.norm = None if cfg.MODEL.SMUPInst.NORM == "none" else cfg.MODEL.SMUPInst.NORM
 
         in_channels = [s.channels for s in input_shape]
         assert len(set(in_channels)) == 1, "Each level must have the same channel!"
@@ -278,65 +265,22 @@ class SMInstHead(nn.Module):
             in_channels, 1, kernel_size=3,
             stride=1, padding=1
         )
-
-        # self.residual = nn.Sequential(
-        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
-        #     nn.Sigmoid(),
-        # )
         self.residual = nn.Sequential(
-            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
-            nn.ReLU(),
-            nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
-            nn.Sigmoid(),
-        )
-
-        self.mask_fusion = nn.Sequential(
-            nn.Conv2d(in_channels * 2, in_channels, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
-            nn.ReLU()
-        )
-
-        self.bbox_fusion = nn.Sequential(
-            nn.Conv2d(in_channels + self.mask_size ** 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(in_channels * 3, in_channels * 2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels * 2, in_channels, kernel_size=3, stride=1, padding=1),
-            nn.ReLU()
+            nn.ReLU(),
         )
-
-        # if self.use_gcn_in_mask:
-        #     self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
-        # else:
-        #     self.mask_pred = nn.Conv2d(
-        #         in_channels, self.num_codes, kernel_size=3,
-        #         stride=1, padding=1
-        #     )
 
         if self.use_gcn_in_mask:
-            self.mask_pred = nn.Sequential(
-                nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
-                nn.ReLU(),
-                GCN(in_channels, self.num_codes, k=self.gcn_kernel_size),
-            )
+            self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
         else:
-            self.mask_pred = nn.Sequential(
-                nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
-                nn.ReLU(),
-                nn.Conv2d(in_channels, self.num_codes, kernel_size=1, stride=1, padding=0)
+            self.mask_pred = nn.Conv2d(
+                in_channels, self.num_codes, kernel_size=3,
+                stride=1, padding=1
             )
 
-        # self.mask_active = nn.Conv2d(
-        #     in_channels, self.num_codes, kernel_size=3,
-        #     stride=1, padding=1
-        # )
-
-        if cfg.MODEL.SMInst.USE_SCALE:
+        if cfg.MODEL.SMUPInst.USE_SCALE:
             self.scales = nn.ModuleList([Scale(init_value=1.0) for _ in self.fpn_strides])
         else:
             self.scales = None
@@ -345,7 +289,7 @@ class SMInstHead(nn.Module):
             self.cls_tower, self.bbox_tower,
             self.share_tower, self.cls_logits,
             self.bbox_pred, self.ctrness,
-            self.mask_tower, self.mask_pred, self.mask_fusion, self.bbox_fusion, self.residual
+            self.mask_tower, self.mask_pred, self.residual
         ]:
             for l in modules.modules():
                 if isinstance(l, nn.Conv2d):
@@ -353,70 +297,34 @@ class SMInstHead(nn.Module):
                     torch.nn.init.constant_(l.bias, 0)
 
         # initialize the bias for focal loss
-        prior_prob = cfg.MODEL.SMInst.PRIOR_PROB
+        prior_prob = cfg.MODEL.SMUPInst.PRIOR_PROB
         bias_value = -math.log((1 - prior_prob) / prior_prob)
         torch.nn.init.constant_(self.cls_logits.bias, bias_value)
 
-    def forward(self, x, mask_encoding):
+    def forward(self, x):
         logits = []
         bbox_reg = []
         ctrness = []
-        mask_reg = []  # this is the codes
-        mask_pred = []  # this is the actual masks
-        # mask_active = []
+        bbox_towers = []
+        mask_reg = []
+        mask_active = []
         # mask_tower_interm_outputs = []
         for l, feature in enumerate(x):
             feature = self.share_tower(feature)
             cls_tower = self.cls_tower(feature)
             bbox_tower = self.bbox_tower(feature)
+            mask_tower = self.mask_tower(feature)
+
+            mask_tower_cat = mask_tower + cls_tower + bbox_tower
+            residual_mask = self.residual(mask_tower_cat)
 
             logits.append(self.cls_logits(cls_tower))
-
-            # Mask Encoding
-            mask_tower = self.mask_tower(feature)
-            mask_code_features = torch.cat([mask_tower, cls_tower], dim=1)
-            mask_code_fused_features = self.mask_fusion(mask_code_features)
-            mask_code_prediction = self.mask_pred(mask_code_fused_features)
-            mask_reg.append(mask_code_prediction)
-
-            with torch.no_grad():
-                if self.if_whiten:
-                    init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1).contiguous(),
-                                             mask_encoding.dictionary) * mask_encoding.shape_std.view(1, 1, 1, -1) + \
-                                mask_encoding.shape_mean.view(1, 1, 1, -1)
-                else:
-                    init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1).contiguous(),
-                                             mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
-
-            # residual_features = torch.cat([cls_tower, bbox_tower, init_mask.permute(0, 3, 1, 2)],
-            #                               dim=1)
-            residual_features = init_mask.permute(0, 3, 1, 2).contiguous()  # initialized as the decoded masks
-            iter_output = []
-
-            # Iterations for refinement
-            for _ in range(self.mask_refinement_iter):
-                fused_features = torch.cat([bbox_tower, mask_tower, residual_features], dim=1)
-                residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1]
-                residual_features = residual_mask + residual_features
-                bbox_tower = self.bbox_fusion(torch.cat([bbox_tower, residual_features], dim=1))
-                iter_output.append(residual_features)
-
-            if self.mask_refinement_iter < 1:
-                mask_pred.append([residual_features])
-            else:
-                mask_pred.append(iter_output)
-
             ctrness.append(self.ctrness(bbox_tower))
             reg = self.bbox_pred(bbox_tower)
             if self.scales is not None:
                 reg = self.scales[l](reg)
-
-            # Note that we use relu, as in the improved SMInst, instead of exp.
+            # Note that we use relu, as in the improved SMUPInst, instead of exp.
             bbox_reg.append(F.relu(reg))
+            mask_reg.append(self.mask_pred(residual_mask))
 
-            # mask_reg.append(self.mask_pred(cls_tower))
-            # mask_active.append(self.mask_active(cls_tower))
-            # mask_tower_interm_outputs.append(mask_tower_interm_output)
-
-        # return logits, bbox_reg, ctrness, bbox_towers, mask_reg, mask_active  #, mask_tower_interm_outputs
-        return logits, bbox_reg, ctrness, mask_pred, mask_reg
+        return logits, bbox_reg, ctrness, bbox_towers, mask_reg
