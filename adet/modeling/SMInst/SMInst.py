@@ -398,7 +398,7 @@ class SMInstHead(nn.Module):
                 fused_features = torch.cat([bbox_tower, mask_tower, residual_features], dim=1)
                 residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1]
                 residual_features = residual_mask + residual_features
-                bbox_tower = self.bbox_fusion(torch.cat([bbox_tower, residual_features]))
+                bbox_tower = self.bbox_fusion(torch.cat([bbox_tower, residual_features], dim=1))
                 iter_output.append(residual_features)
 
             if self.mask_refinement_iter < 1:
