@@ -18,9 +18,9 @@ class SparseMaskEncoding(nn.Module):
         self.output_mask_size = cfg.MODEL.SMUPInst.OUTPUT_MASK_SIZE
         self.sparse_alpha = cfg.MODEL.SMUPInst.MASK_SPARSE_ALPHA
         self.max_iter = cfg.MODEL.SMUPInst.MAX_ISTA_ITER
-        self.dictionary = nn.Parameter(torch.zeros(self.num_codes, self.mask_size ** 2), requires_grad=False)
-        self.shape_mean = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
-        self.shape_std = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
+        self.dictionary = nn.Parameter(torch.zeros(self.num_codes, self.decode_mask_size ** 2), requires_grad=False)
+        self.shape_mean = nn.Parameter(torch.zeros(1, self.decode_mask_size ** 2), requires_grad=False)
+        self.shape_std = nn.Parameter(torch.zeros(1, self.decode_mask_size ** 2), requires_grad=False)
         self.if_whiten = cfg.MODEL.SMUPInst.WHITEN
 
     def encoder(self, X):
