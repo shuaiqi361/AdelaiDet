@@ -280,8 +280,9 @@ class SMUPInstHead(nn.Module):
         self.upsample = nn.Sequential(
             nn.Conv2d(in_channels * 2 + self.decode_mask_size ** 2, self.decode_mask_size ** 2, kernel_size=1, stride=1, padding=0),
             nn.ReLU(),
-            nn.Conv2d(self.decode_mask_size ** 2, self.output_mask_size ** 2, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(self.decode_mask_size ** 2, self.output_mask_size ** 2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
+            nn.Conv2d(self.output_mask_size ** 2, self.output_mask_size ** 2, kernel_size=1, stride=1, padding=0)
         )
 
         if self.use_gcn_in_mask:

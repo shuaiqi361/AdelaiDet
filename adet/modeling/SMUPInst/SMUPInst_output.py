@@ -664,7 +664,8 @@ class SMUPInstOutputs(object):
         num_images = len(boxlists)
         for i in range(num_images):
             per_image_masks = boxlists[i].pred_masks
-            per_image_masks = torch.clamp(per_image_masks, min=0.001, max=0.999)
+            # per_image_masks = torch.clamp(per_image_masks, min=0.001, max=0.999)
+            per_image_masks = torch.sigmoid(per_image_masks)
             per_image_masks = per_image_masks.view(-1, 1, self.output_mask_size, self.output_mask_size)
             boxlists[i].pred_masks = per_image_masks
 
