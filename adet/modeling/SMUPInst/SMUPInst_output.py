@@ -118,6 +118,7 @@ class SMUPInstOutputs(object):
         self.mask_loss_weight = cfg.MODEL.SMUPInst.MASK_LOSS_WEIGHT
         self.sparsity_loss_type = cfg.MODEL.SMUPInst.SPARSITY_LOSS_TYPE
         self.kl_rho = cfg.MODEL.SMUPInst.SPARSITY_KL_RHO
+        self.bce = nn.BCEWithLogitsLoss(reduction="none")
 
         # Matcher to assign box proposals to gt boxes
         self.proposal_matcher = Matcher(
@@ -435,7 +436,14 @@ class SMUPInstOutputs(object):
         if self.loss_on_mask:
             # n_components predictions --> m*m mask predictions without sigmoid
             # as sigmoid function is combined in loss.
-            # mask_pred_, mask_pred_bin = self.mask_encoding.decoder(mask_pred, is_train=True)
+            if 'mask_bce' in self.mask_loss_type:
+                mask_loss = self.bce(
+                    mask_pred_,
+                    mask_targets
+                )
+                mask_loss = mask_loss.sum(1) * ctrness_targets
+                mask_loss = mask_loss.sum() / max(ctrness_norm * self.output_mask_size ** 2, 1.0)
+                total_mask_loss += mask_loss
             if 'mask_mse' in self.mask_loss_type:
                 mask_loss = F.mse_loss(
                     mask_pred_,
