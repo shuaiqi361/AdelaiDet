@@ -529,3 +529,94 @@ _C.MODEL.SMUPInst.LOSS_ON_MASK = True
 _C.MODEL.SMUPInst.LOSS_ON_CODE = True
 
 
+# ---------------------------------------------------------------------------- #
+# DTInst Head Configuration
+# ---------------------------------------------------------------------------- #
+_C.MODEL.DTMRInst = CN()
+
+# This is the number of foreground classes.
+_C.MODEL.DTMRInst.NUM_CLASSES = 80
+_C.MODEL.DTMRInst.IN_FEATURES = ["p3", "p4", "p5", "p6", "p7"]
+_C.MODEL.DTMRInst.FPN_STRIDES = [8, 16, 32, 64, 128]
+_C.MODEL.DTMRInst.PRIOR_PROB = 0.01
+_C.MODEL.DTMRInst.INFERENCE_TH_TRAIN = 0.05
+_C.MODEL.DTMRInst.INFERENCE_TH_TEST = 0.05
+_C.MODEL.DTMRInst.NMS_TH = 0.6
+_C.MODEL.DTMRInst.PRE_NMS_TOPK_TRAIN = 1000
+_C.MODEL.DTMRInst.PRE_NMS_TOPK_TEST = 1000
+_C.MODEL.DTMRInst.POST_NMS_TOPK_TRAIN = 100
+_C.MODEL.DTMRInst.POST_NMS_TOPK_TEST = 100
+_C.MODEL.DTMRInst.TOP_LEVELS = 2
+_C.MODEL.DTMRInst.NORM = "GN"  # Support GN or none
+_C.MODEL.DTMRInst.USE_SCALE = True
+
+# Multiply centerness before threshold
+# This will affect the final performance by about 0.05 AP but save some time
+_C.MODEL.DTMRInst.THRESH_WITH_CTR = True
+
+# Focal loss parameters
+_C.MODEL.DTMRInst.LOSS_ALPHA = 0.25
+_C.MODEL.DTMRInst.LOSS_GAMMA = 2.0
+_C.MODEL.DTMRInst.SIZES_OF_INTEREST = [64, 128, 256, 512]
+_C.MODEL.DTMRInst.USE_RELU = True
+_C.MODEL.DTMRInst.USE_DEFORMABLE = False
+_C.MODEL.DTMRInst.LAST_DEFORMABLE = False
+_C.MODEL.DTMRInst.TYPE_DEFORMABLE = "DCNv2"  # or DCNv2.
+
+# the number of convolutions used in the cls and bbox tower
+_C.MODEL.DTMRInst.NUM_CLS_CONVS = 4
+_C.MODEL.DTMRInst.NUM_BOX_CONVS = 4
+_C.MODEL.DTMRInst.NUM_SHARE_CONVS = 0
+_C.MODEL.DTMRInst.CENTER_SAMPLE = True
+_C.MODEL.DTMRInst.POS_RADIUS = 1.5
+_C.MODEL.DTMRInst.LOC_LOSS_TYPE = 'giou'
+
+# ---------------------------------------------------------------------------- #
+# Sparse Encoding for Distance Transformation Map Instance Segmentation
+# ---------------------------------------------------------------------------- #
+# Whether to use mask branch.
+_C.MODEL.DTMRInst.MASK_ON = True
+# IOU overlap ratios [IOU_THRESHOLD]
+# Overlap threshold for an RoI to be considered background (if < IOU_THRESHOLD)
+# Overlap threshold for an RoI to be considered foreground (if >= IOU_THRESHOLD)
+_C.MODEL.DTMRInst.IOU_THRESHOLDS = [0.5]
+_C.MODEL.DTMRInst.IOU_LABELS = [0, 1]
+# Whether to use class_agnostic or class_specific.
+_C.MODEL.DTMRInst.AGNOSTIC = True
+# Some operations in mask encoding.
+_C.MODEL.DTMRInst.WHITEN = False
+_C.MODEL.DTMRInst.SIGMOID = True
+
+# The number of convolutions used in the mask tower.
+_C.MODEL.DTMRInst.NUM_MASK_CONVS = 4
+
+# The dim of mask before/after mask encoding.
+_C.MODEL.DTMRInst.MASK_SIZE = 28
+_C.MODEL.DTMRInst.FOREGROUND_WEIGHTING = 1.0
+_C.MODEL.DTMRInst.BACKGROUND_WEIGHTING = 1.0
+_C.MODEL.DTMRInst.MASK_BIAS = -0.1
+_C.MODEL.DTMRInst.NUM_CODE = 128
+_C.MODEL.DTMRInst.MASK_SPARSE_ALPHA = 0.2
+_C.MODEL.DTMRInst.MASK_SPARSE_WEIGHT = 0.0
+_C.MODEL.DTMRInst.MASK_LOSS_WEIGHT = 1.0
+_C.MODEL.DTMRInst.SPARSITY_LOSS_TYPE = 'L1'
+
+# The dim for sparse shape encoding
+_C.MODEL.DTMRInst.MAX_ISTA_ITER = 80
+_C.MODEL.DTMRInst.DIST_TYPE = "L2"
+# The default path for parameters of mask encoding.
+_C.MODEL.DTMRInst.PATH_DICTIONARY = "datasets/coco/components/" \
+                                   "coco_2017_train_class_agnosticTrue_whitenTrue_sigmoidTrue_60.npz"
+# An indicator for encoding parameters loading during training.
+_C.MODEL.DTMRInst.FLAG_PARAMETERS = False
+# The loss for mask branch, can be mse now.
+_C.MODEL.DTMRInst.MASK_LOSS_TYPE = ["mse", "cosine", "mask_mse"]
+_C.MODEL.DTMRInst.SHAPE_LOSS_TYPE = "piou"
+
+# Whether to use gcn in mask prediction.
+# Large Kernel Matters -- https://arxiv.org/abs/1703.02719
+_C.MODEL.DTMRInst.USE_GCN_IN_MASK = False
+_C.MODEL.DTMRInst.GCN_KERNEL_SIZE = 9
+# Whether to compute loss on original mask (binary mask).
+_C.MODEL.DTMRInst.LOSS_ON_MASK = True
+_C.MODEL.DTMRInst.LOSS_ON_CODE = True

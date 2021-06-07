@@ -10,6 +10,7 @@ from .SMInst import SMInst
 from .SMUPInst import SMUPInst
 # from .SparseMaskInst import SMInst
 # from .DTInst import DTInst
+from .DTMRInst import DTMRInst
 from .SparseDTMInst import DTInst
 from .condinst import condinst
 
