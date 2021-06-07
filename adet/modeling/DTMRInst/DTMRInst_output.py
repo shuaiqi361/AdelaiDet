@@ -439,7 +439,8 @@ class DTMRInstOutputs(object):
 
         total_mask_loss = 0.
         # _, binary_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)  # from sparse coefficients to DTMs/images
-        code_targets, dtm_targets, weight_maps, hd_maps = self.mask_encoding.encoder(mask_targets)
+        # code_targets, dtm_targets, weight_maps, hd_maps = self.mask_encoding.encoder(mask_targets)
+        code_targets, dtm_targets, weight_maps, _ = self.mask_encoding.encoder(mask_targets)
 
         if self.loss_on_mask:
             if 'mask_mse' in self.mask_loss_type:
