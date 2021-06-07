@@ -448,7 +448,7 @@ class DTMRInstOutputs(object):
                 for mask_pred_ in mask_pred_decoded_list:
                     _loss = F.mse_loss(
                         mask_pred_,
-                        dtm_targets,
+                        mask_targets,
                         reduction='none'
                     )
                     _loss = _loss.sum(1) * ctrness_targets
@@ -460,13 +460,22 @@ class DTMRInstOutputs(object):
                 for mask_pred_ in mask_pred_decoded_list:
                     _loss = F.mse_loss(
                         mask_pred_,
-                        dtm_targets,
+                        mask_targets,
                         reduction='none'
                     )
                     _loss = torch.sum(_loss * weight_maps, 1) * ctrness_targets
                     _loss = _loss.sum() / torch.sum(weight_maps) / max(ctrness_norm * self.mask_size ** 2, 1.0)
                     mask_loss += _loss
                 total_mask_loss += mask_loss
+            if 'mask_dice' in self.mask_loss_type:
+                dice_loss = 0
+                for mask_pred_ in mask_pred_decoded_list:
+                    overlap_ = torch.sum(mask_pred_ * 2. * mask_targets, 1)
+                    union_ = torch.sum(mask_pred_ ** 2, 1) + torch.sum(mask_targets ** 2, 1)
+                    _loss = (1. - overlap_ / (union_ + 1e-4)) * ctrness_targets * self.mask_size ** 2
+                    _loss = _loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                    dice_loss += _loss
+                total_mask_loss += dice_loss
 
         if self.loss_on_code:
             # m*m mask labels --> n_components encoding labels
@@ -649,7 +658,8 @@ class DTMRInstOutputs(object):
         num_images = len(boxlists)
         for i in range(num_images):
             per_image_masks = boxlists[i].pred_masks
-            per_image_masks = torch.clamp(per_image_masks + 0.9, min=0.001, max=0.999)
+            # per_image_masks = torch.clamp(per_image_masks + 0.9, min=0.001, max=0.999)
+            per_image_masks = torch.clamp(per_image_masks, min=0.001, max=0.999)
             boxlists[i].pred_masks = per_image_masks.view(-1, 1, self.mask_size, self.mask_size)
 
         return boxlists
