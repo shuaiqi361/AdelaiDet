@@ -649,7 +649,7 @@ class DTMRInstOutputs(object):
         num_images = len(boxlists)
         for i in range(num_images):
             per_image_masks = boxlists[i].pred_masks
-            per_image_masks = torch.clamp(per_image_masks + 0.5, min=0.001, max=0.999)
+            per_image_masks = torch.clamp(per_image_masks + 0.9, min=0.001, max=0.999)
             boxlists[i].pred_masks = per_image_masks.view(-1, 1, self.mask_size, self.mask_size)
 
         return boxlists
