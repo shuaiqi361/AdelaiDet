@@ -352,7 +352,8 @@ class DTMRInstHead(nn.Module):
                     init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1).contiguous(),
                                              mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
 
-            residual_features = (init_mask.permute(0, 3, 1, 2).contiguous() + 1.) / 2.  # initialized as the decoded masks to be (-1, 1)
+            # residual_features = (init_mask.permute(0, 3, 1, 2).contiguous() + 1.) / 2.  # initialized as the decoded masks to be (-1, 1)
+            residual_features = init_mask.permute(0, 3, 1, 2).contiguous() + 0.9  # initialized as the decoded masks to be (-1, 1)
             iter_output = []
 
             # Iterations for refinement
