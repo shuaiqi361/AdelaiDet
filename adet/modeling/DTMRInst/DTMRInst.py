@@ -277,12 +277,12 @@ class DTMRInstHead(nn.Module):
             nn.ReLU(),
             nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
             nn.Sigmoid(),
         )
 
         self.mask_fusion = nn.Sequential(
-            nn.Conv2d(in_channels * 3, in_channels, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(in_channels * 3, in_channels, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
             nn.ReLU()
@@ -353,7 +353,8 @@ class DTMRInstHead(nn.Module):
                                              mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
 
             # residual_features = (init_mask.permute(0, 3, 1, 2).contiguous() + 1.) / 2.  # initialized as the decoded masks to be (-1, 1)
-            residual_features = init_mask.permute(0, 3, 1, 2).contiguous() + 0.9  # initialized as the decoded masks to be (-1, 1)
+            # residual_features = init_mask.permute(0, 3, 1, 2).contiguous() + 0.9  # initialized as the decoded masks to be (-1, 1)
+            residual_features = torch.clamp(init_mask.permute(0, 3, 1, 2).contiguous() + 0.9, min=0.001, max=0.999) # initialized as the decoded masks to be (-1, 1)
             iter_output = []
 
             # Iterations for refinement
