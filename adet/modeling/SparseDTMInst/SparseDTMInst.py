@@ -280,18 +280,18 @@ class DTInstHead(nn.Module):
         #     nn.ReLU(),
         #     nn.Conv2d(in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
         # )
-        # self.residual = nn.Sequential(
-        #     nn.Conv2d(in_channels * 3, in_channels, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        # )
         self.residual = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels * 2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels * 3, in_channels, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels * 2, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
         )
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(in_channels, in_channels * 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, in_channels, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        # )
 
         if self.use_gcn_in_mask:
             self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
@@ -344,8 +344,8 @@ class DTInstHead(nn.Module):
             # Mask Encoding
             mask_tower = self.mask_tower(feature)
             # mask_code_prediction = self.mask_pred(mask_tower)
-            # mask_tower_cat = torch.cat([mask_tower, cls_tower, bbox_tower], dim=1)
-            mask_tower_cat = mask_tower + cls_tower + bbox_tower
+            mask_tower_cat = torch.cat([mask_tower, cls_tower, bbox_tower], dim=1)
+            # mask_tower_cat = mask_tower + cls_tower + bbox_tower
             # mask_tower_cat = mask_tower + cls_tower
             # mask_tower_cat = mask_tower
             residual_mask = self.residual(mask_tower_cat)

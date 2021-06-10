@@ -503,7 +503,7 @@ class DTInstOutputs(object):
             if 'mask_dice' in self.mask_loss_type:
                 overlap_ = torch.sum(binary_pred_ * 2. * mask_targets, 1)
                 union_ = torch.sum(binary_pred_ ** 2, 1) + torch.sum(mask_targets ** 2, 1)
-                dice_loss = (1. - overlap_ / (union_ + 1e-4)) * ctrness_targets * self.mask_size ** 2
+                dice_loss = (1. - overlap_ / (union_ + 1e-5)) * ctrness_targets * self.mask_size ** 2
                 dice_loss = dice_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
                 total_mask_loss += dice_loss
         if self.loss_on_code:
@@ -523,10 +523,9 @@ class DTInstOutputs(object):
                         mask_loss = mask_loss * self.mask_loss_weight + \
                                     sparsity_loss * self.mask_sparse_weight
                     elif self.sparsity_loss_type == 'weighted_L1':
-                        w_ = (torch.abs(code_targets) < 1e-4) * 1.  # inactive codes, put L1 regularization on them
-                        sparsity_loss = torch.sum(torch.abs(mask_pred) * w_, 1) / torch.sum(w_, 1) \
-                                        * ctrness_targets * self.num_codes
-                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                        w_ = (torch.abs(code_targets) < 1e-3) * 1.  # inactive codes, put L1 regularization on them
+                        sparsity_loss = torch.sum(torch.abs(mask_pred) * w_, 1)* ctrness_targets
+                        sparsity_loss = sparsity_loss.sum() / torch.sum(w_) / max(ctrness_norm * self.num_codes, 1.0)
                         mask_loss = mask_loss * self.mask_loss_weight + \
                                     sparsity_loss * self.mask_sparse_weight
                     elif self.sparsity_loss_type == 'weighted_L2':
