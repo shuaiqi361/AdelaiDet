@@ -187,7 +187,7 @@ class DTMRInstHead(nn.Module):
         self.gcn_kernel_size = cfg.MODEL.DTMRInst.GCN_KERNEL_SIZE
         self.mask_size = cfg.MODEL.DTMRInst.MASK_SIZE
         self.if_whiten = cfg.MODEL.DTMRInst.WHITEN
-        self.mask_refinement_iter = cfg.MODEL.SMInst.MASK_REFINEMENT_ITER
+        self.mask_refinement_iter = cfg.MODEL.DTMRInst.MASK_REFINEMENT_ITER
 
         head_configs = {"cls": (cfg.MODEL.DTMRInst.NUM_CLS_CONVS,
                                 cfg.MODEL.DTMRInst.USE_DEFORMABLE),
