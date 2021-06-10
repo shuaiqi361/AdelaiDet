@@ -358,12 +358,21 @@ class DTMRInstHead(nn.Module):
             iter_output = []
 
             # Iterations for refinement
-            for _ in range(self.mask_refinement_iter):
-                fused_features = torch.cat([bbox_tower, mask_tower, residual_features], dim=1)
-                residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1]
-                residual_features = residual_mask + residual_features
-                # residual_features = torch.clamp(residual_features, min=0.001, max=0.999)
-                iter_output.append(residual_features)
+            if self.training:
+                for _ in range(1):
+                    fused_features = torch.cat([bbox_tower, mask_tower, residual_features], dim=1)
+                    residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1]
+                    residual_features = residual_mask + residual_features
+                    # residual_features = torch.clamp(residual_features, min=0.001, max=0.999)
+                    iter_output.append(residual_features)
+            else:
+                with torch.no_grad():
+                    for _ in range(self.mask_refinement_iter):
+                        fused_features = torch.cat([bbox_tower, mask_tower, residual_features], dim=1)
+                        residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1]
+                        residual_features = residual_mask + residual_features
+                        # residual_features = torch.clamp(residual_features, min=0.001, max=0.999)
+                        iter_output.append(residual_features)
 
             if self.mask_refinement_iter < 1:
                 mask_pred.append([residual_features])
