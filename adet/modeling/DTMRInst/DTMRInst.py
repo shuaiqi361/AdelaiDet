@@ -275,9 +275,9 @@ class DTMRInstHead(nn.Module):
         self.ref_conv_1 = nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0)
         self.ref_conv_2 = nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1)
         self.ref_conv_3 = nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0)
-        self.residual = []
+        # self.residual = []
 
-        for _ in range(self.mask_refinement_iter):
+        for j in range(self.mask_refinement_iter):
             refine_module = nn.Sequential(
                 self.ref_conv_1,
                 nn.BatchNorm2d(in_channels * 2),
@@ -289,7 +289,8 @@ class DTMRInstHead(nn.Module):
                 nn.BatchNorm2d(self.mask_size ** 2),
                 nn.Sigmoid(),
             )
-            self.residual.append(refine_module)
+            self.add_module('refine_module_{}'.format(j + 1), refine_module)
+            # self.residual.append()
 
         # self.residual = nn.Sequential(
         #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
@@ -331,10 +332,32 @@ class DTMRInstHead(nn.Module):
                     torch.nn.init.normal_(l.weight, std=0.01)
                     torch.nn.init.constant_(l.bias, 0)
 
+        for j in range(self.mask_refinement_iter):
+            mod = self.get_func(j + 1)
+            for l in mod.modules():
+                if isinstance(l, nn.Conv2d):
+                    torch.nn.init.normal_(l.weight, std=0.01)
+                    torch.nn.init.constant_(l.bias, 0)
+
+
         # initialize the bias for focal loss
         prior_prob = cfg.MODEL.DTMRInst.PRIOR_PROB
         bias_value = -math.log((1 - prior_prob) / prior_prob)
         torch.nn.init.constant_(self.cls_logits.bias, bias_value)
+
+    def get_func(self, i):
+        if i == 1:
+            return self.refine_module_1
+        elif i == 2:
+            return self.refine_module_2
+        elif i == 3:
+            return self.refine_module_3
+        elif i == 4:
+            return self.refine_module_4
+        elif i == 5:
+            return self.refine_module_5
+        else:
+            raise NotImplementedError
 
     def forward(self, x, mask_encoding):
         logits = []
@@ -376,7 +399,8 @@ class DTMRInstHead(nn.Module):
 
             for j in range(self.mask_refinement_iter):
                 fused_features = torch.cat([bbox_tower, mask_tower, residual_features], dim=1)
-                residual_mask = 2. * self.residual[j](fused_features) - 1  # range in [-1, 1]
+                mod = self.get_func(j + 1)
+                residual_mask = 2. * mod(fused_features) - 1  # range in [-1, 1]
                 residual_features = residual_mask + residual_features
                 iter_output.append(residual_features)
 
