@@ -274,17 +274,17 @@ class DTMRInstHead(nn.Module):
 
         self.ref_conv_1 = nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0)
         self.ref_conv_2 = nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1)
-        self.ref_conv_3 = nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0)
+        self.ref_conv_3 = nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1)
         # self.residual = []
 
         for j in range(self.mask_refinement_iter):
             refine_module = nn.Sequential(
                 self.ref_conv_1,
                 nn.BatchNorm2d(in_channels * 2),
-                nn.ReLU(),
+                nn.Sigmoid(),
                 self.ref_conv_2,
                 nn.BatchNorm2d(in_channels * 2),
-                nn.ReLU(),
+                nn.Sigmoid(),
                 self.ref_conv_3,
                 nn.BatchNorm2d(self.mask_size ** 2),
                 nn.Sigmoid(),
