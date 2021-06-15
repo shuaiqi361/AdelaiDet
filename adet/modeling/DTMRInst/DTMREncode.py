@@ -16,23 +16,23 @@ class DistanceTransformEncoding(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
-        self.num_codes = cfg.MODEL.DTInst.NUM_CODE
-        self.mask_size = cfg.MODEL.DTInst.MASK_SIZE
-        self.fg_weighting = cfg.MODEL.DTInst.FOREGROUND_WEIGHTING
-        self.bg_weighting = cfg.MODEL.DTInst.BACKGROUND_WEIGHTING
-        self.mask_bias = cfg.MODEL.DTInst.MASK_BIAS
-        self.sparse_alpha = cfg.MODEL.DTInst.MASK_SPARSE_ALPHA
-        self.max_iter = cfg.MODEL.DTInst.MAX_ISTA_ITER
+        self.num_codes = cfg.MODEL.DTMRInst.NUM_CODE
+        self.mask_size = cfg.MODEL.DTMRInst.MASK_SIZE
+        self.fg_weighting = cfg.MODEL.DTMRInst.FOREGROUND_WEIGHTING
+        self.bg_weighting = cfg.MODEL.DTMRInst.BACKGROUND_WEIGHTING
+        self.mask_bias = cfg.MODEL.DTMRInst.MASK_BIAS
+        self.sparse_alpha = cfg.MODEL.DTMRInst.MASK_SPARSE_ALPHA
+        self.max_iter = cfg.MODEL.DTMRInst.MAX_ISTA_ITER
         self.dictionary = nn.Parameter(torch.zeros(self.num_codes, self.mask_size ** 2), requires_grad=False)
         self.shape_mean = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
         self.shape_std = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
-        self.if_whiten = cfg.MODEL.SMInst.WHITEN
+        self.if_whiten = cfg.MODEL.DTMRInst.WHITEN
 
-        if cfg.MODEL.DTInst.DIST_TYPE == 'L2':
+        if cfg.MODEL.DTMRInst.DIST_TYPE == 'L2':
             self.dist_type = cv2.DIST_L2
-        elif cfg.MODEL.DTInst.DIST_TYPE == 'L1':
+        elif cfg.MODEL.DTMRInst.DIST_TYPE == 'L1':
             self.dist_type = cv2.DIST_L1
-        elif cfg.MODEL.DTInst.DIST_TYPE == 'C':
+        elif cfg.MODEL.DTMRInst.DIST_TYPE == 'C':
             self.dist_type = cv2.DIST_C
         else:
             self.dist_type = cv2.DIST_L2
