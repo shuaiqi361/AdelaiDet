@@ -272,10 +272,21 @@ class DTMRInstHead(nn.Module):
             stride=1, padding=1
         )
 
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
+        #     nn.Sigmoid(),
+        # )
+
         self.residual = nn.Sequential(
-            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0, bias=True),
             nn.ReLU(),
-            nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1, bias=True),
+            nn.ReLU(),
+            DFConv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1, bias=False, with_modulated_dcn=True),
             nn.ReLU(),
             nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
             nn.Sigmoid(),
@@ -354,7 +365,7 @@ class DTMRInstHead(nn.Module):
 
             # residual_features = (init_mask.permute(0, 3, 1, 2).contiguous() + 1.) / 2.  # initialized as the decoded masks to be (-1, 1)
             # residual_features = init_mask.permute(0, 3, 1, 2).contiguous() + 0.9  # initialized as the decoded masks to be (-1, 1)
-            residual_features = torch.clamp(init_mask.permute(0, 3, 1, 2).contiguous() + 0.9, min=0.001, max=0.999) # initialized as the decoded masks to be (-1, 1)
+            residual_features = torch.clamp(init_mask.permute(0, 3, 1, 2).contiguous() + 0.9, min=0.0001, max=0.9999) # initialized as the decoded masks to be (-1, 1)
             iter_output = []
 
             for _ in range(self.mask_refinement_iter):
