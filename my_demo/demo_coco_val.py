@@ -116,6 +116,8 @@ if __name__ == "__main__":
         predictions, visualized_output = demo.run_on_image(img)
         # print(predictions["instances"])
         codes_ = predictions["instances"].pred_codes.cpu().numpy()
+        # if len(codes_) == 0:
+        #     continue
         pred_codes.append(codes_)
 
         logger.info(
@@ -142,7 +144,7 @@ if __name__ == "__main__":
                 out_filename = args.output
             visualized_output.save(out_filename)
         else:
-            # continue
+            continue
             cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
             print('image id: ', img_id)
             if cv2.waitKey() & 0xFF == ord('q'):

@@ -73,7 +73,7 @@ def get_parser():
     parser.add_argument(
         "--confidence-threshold",
         type=float,
-        default=0.2,
+        default=0.05,
         help="Minimum score for instance predictions to be shown",
     )
     parser.add_argument(
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
             seg_results.append(result)
 
-    with open('{}/results/{}_baidu_bbox_results_02.json'.format(args.result_dir, args.data_type), 'w') as f_det:
+    with open('{}/results/{}_baidu_bbox_results.json'.format(args.result_dir, args.data_type), 'w') as f_det:
         json.dump(seg_results, f_det)
 
     # # with open('{}/1584811984_train_final_small.json'.format(args.data_path), 'w') as f_det:
@@ -201,7 +201,7 @@ if __name__ == "__main__":
     if 'test' not in args.data_type:
         print('---------------------------------------------------------------------------------')
         print('Running bbox evaluation on Baidu finetune data ...')
-        coco_pred = coco.loadRes('{}/results/{}_baidu_bbox_results_02.json'.format(args.result_dir, args.data_type))
+        coco_pred = coco.loadRes('{}/results/{}_baidu_bbox_results.json'.format(args.result_dir, args.data_type))
         coco_eval = COCOeval(coco, coco_pred, 'bbox')
         coco_eval.params.imgIds = valid_ids
         coco_eval.evaluate()

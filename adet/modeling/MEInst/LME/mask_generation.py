@@ -23,10 +23,11 @@ def mask_encoding(masks, n_components=60, class_agnostic=True, whiten=True, sigm
     explained_variance_c = []
     if class_agnostic:
         if sigmoid:
-            value_random = VALUE_MAX * np.random.rand(masks.shape[0], masks.shape[1])
+            value_random = VALUE_MAX * np.random.rand(masks.shape[0], masks.shape[1]).astype(np.float16)
             value_random = np.maximum(value_random, VALUE_MIN)
             masks = np.where(masks > value_random, 1-value_random, value_random)
             masks = inverse_sigmoid(masks)
+        masks = masks.astype(np.float16)
         pca = IncrementalPCA(n_components=n_components, copy=False, whiten=whiten, batch_size=batch_size)
         pca.fit(masks)
         components_c.append(pca.components_[np.newaxis, :, :])
@@ -43,12 +44,12 @@ def mask_encoding(masks, n_components=60, class_agnostic=True, whiten=True, sigm
 
 def parse_args():
     parser = argparse.ArgumentParser(description='PCA Mask Encoding for local mask.')
-    parser.add_argument('--root', default='datasets', type=str)
+    parser.add_argument('--root', default='/home/keyi/Documents/Data/COCO_17', type=str)
     parser.add_argument('--dataset', default='coco_2017_train', type=str)
     parser.add_argument('--output', default='coco/components', type=str)
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
-    parser.add_argument('--n_components', default=60, type=int)
+    parser.add_argument('--n_components', default=128, type=int)
     parser.add_argument('--class_agnostic', default=True, type=bool)
     parser.add_argument('--whiten', default=True, type=bool)
     parser.add_argument('--sigmoid', default=True, type=bool)
@@ -86,7 +87,7 @@ if __name__ == "__main__":
     print("Finish Loading Masks in {}s.".format(toc))
     masks = torch.cat(masks, 0)
     masks = masks.view(masks.shape[0], -1).numpy()
-    masks = masks.astype(np.float32)
+    masks = masks.astype(np.float16)[:400000, :]
 
     # mask encoding.
     print("Start to mask encoding ...")
