@@ -117,7 +117,7 @@ def prepare_distance_transform_from_mask(masks, mask_size, kernel=5, dist_type=c
     return DTMs
 
 
-def prepare_distance_transform_from_mask_with_weights(masks, mask_size, kernel=5, dist_type=cv2.DIST_L2, fg_weighting=1.0, bg_weighting=0.9, mask_bias=-0.15):
+def prepare_distance_transform_from_mask_with_weights(masks, mask_size, kernel=5, dist_type=cv2.DIST_L2, fg_weighting=1.0, bg_weighting=0.9, mask_bias=-0.1):
     """
     Given a set of masks as torch tensor, convert to numpy array, find distance transform maps from them,
     and convert DTMs back to torch tensor, a weight map with 1 - DTM will be returned(emphasizing boundary and thin parts)
@@ -140,12 +140,12 @@ def prepare_distance_transform_from_mask_with_weights(masks, mask_size, kernel=5
     for m in masks:
         dist_m = cv2.distanceTransform(m, distanceType=dist_type, maskSize=kernel)
         # dist_m_bg = cv2.distanceTransform(1 - m, distanceType=dist_type, maskSize=kernel)
-        dist_m = dist_m / (np.max(dist_m) + 1e-4)  # basic dtms in (0, 1)
+        dist_m = dist_m / (np.max(dist_m) + 1e-5)  # basic dtms in (0, 1)
         # dist_m_bg = dist_m_bg / max(np.max(dist_m_bg), 1.)
         weight_map = np.where(dist_m > 0, fg_weighting + bg_weighting - dist_m, bg_weighting).astype(np.float32)
         dist_map = np.where(dist_m > 0, dist_m, -1).astype(np.float32)  # DTM in (-1, 0-1)
         hd_map = np.where(dist_m > 0, dist_m ** 2., mask_bias).astype(np.float32)  # not sure why the best
-        # hd_map = np.where(dist_m > 0, dist_m ** 2., 0.01).astype(np.float32)
+        # hd_map = np.where(dist_m > 0, dist_m, mask_bias).astype(np.float32)
         # hd_map = np.where(dist_m > 0, dist_m ** 2, dist_m_bg ** 2 / 2.).astype(np.float32)
         weight_maps.append(weight_map.reshape((1, -1)))
         DTMs.append(dist_map.reshape((1, -1)))
@@ -244,16 +244,17 @@ def prepare_extended_DTMs_from_mask(masks, mask_size, kernel=3, dist_type=cv2.DI
         if np.sum(m) < 5:  # for foreground object
             dist_bbox_in = np.zeros(shape=m.shape)
         else:
-            dist_bbox_in = cv2.distanceTransform(m, distanceType=cv2.DIST_L2, maskSize=3)
-            dist_bbox_in = dist_bbox_in / np.max(dist_bbox_in)
+            dist_bbox_in = cv2.distanceTransform(m, distanceType=dist_type, maskSize=kernel)
+            # dist_bbox_in = dist_bbox_in / np.max(dist_bbox_in)
 
         if np.sum(1 - m) < 5:  # for background
             dist_bbox_out = np.zeros(shape=m.shape)
         else:
-            dist_bbox_out = cv2.distanceTransform(1 - m, distanceType=cv2.DIST_L2, maskSize=3)
-            dist_bbox_out = -dist_bbox_out / np.max(dist_bbox_out)
+            dist_bbox_out = cv2.distanceTransform(1 - m, distanceType=dist_type, maskSize=kernel) * -1
+            # dist_bbox_out = -dist_bbox_out / np.max(dist_bbox_out)
 
-        dist_map = (dist_bbox_in + dist_bbox_out + 1) / 2.
+        dist_map = dist_bbox_in + dist_bbox_out
+        dist_map = dist_map / np.max(np.abs(dist_map))  # in most cases it is (-1, 1], or it could be [-1, 1)
 
         DTMs.append(dist_map.reshape((1, -1)))
 
@@ -261,3 +262,45 @@ def prepare_extended_DTMs_from_mask(masks, mask_size, kernel=3, dist_type=cv2.DI
     DTMs = torch.from_numpy(DTMs).to(torch.float32).to(device)
 
     return DTMs
+
+
+def prepare_complement_distance_transform_from_mask_with_weights(masks, mask_size, kernel=5, dist_type=cv2.DIST_L2, fg_weighting=1.0, bg_weighting=0.9, mask_bias=-0.1):
+    """
+    Given a set of masks as torch tensor, convert to numpy array, find distance transform maps from them,
+    and convert DTMs back to torch tensor, a weight map with 1 - DTM will be returned(emphasizing boundary and thin parts)
+    :param mask_bias: bias set for the pixels outside the contour
+    :param fg_weighting: weighting for foreground pixels on the DTMs
+    :param bg_weighting: weighting for background pixels on the DTMs
+    :param dist_type: used for distance transform
+    :param kernel: kernel size for distance transforms
+    :param masks: input masks for instance segmentation, shape: (N, mask_size, mask_size)
+    :param mask_size: input mask size
+    :return: a set of distance transform maps, and a weight map in torch tensor, with the same shape as input masks
+    """
+    assert mask_size * mask_size == masks.shape[1]
+    device = masks.device
+    masks = masks.view(masks.shape[0], mask_size, mask_size).cpu().numpy()
+    masks = masks.astype(np.uint8)
+    DTMs = []
+    weight_maps = []
+    HD_maps = []
+    for m in masks:
+        dist_m = cv2.distanceTransform(m, distanceType=dist_type, maskSize=kernel)
+        dist_m = dist_m / (np.max(dist_m) + 1e-5)  # basic dtms in (0, 1)
+        complement_dist_m = m - dist_m
+        weight_map = np.where(dist_m > 0, fg_weighting + bg_weighting - dist_m, bg_weighting).astype(np.float32)
+        dist_map = np.where(dist_m > 0, complement_dist_m, -1).astype(np.float32)  # DTM in (-1, 0-1)
+        hd_map = np.where(dist_m > 0, dist_m ** 2., mask_bias).astype(np.float32)  # not sure why the best
+
+        weight_maps.append(weight_map.reshape((1, -1)))
+        DTMs.append(dist_map.reshape((1, -1)))
+        HD_maps.append(hd_map.reshape((1, -1)))
+
+    DTMs = np.concatenate(DTMs, axis=0)
+    weight_maps = np.concatenate(weight_maps, axis=0)
+    HD_maps = np.concatenate(HD_maps, axis=0)
+    DTMs = torch.from_numpy(DTMs).to(torch.float32).to(device)
+    weight_maps = torch.from_numpy(weight_maps).to(torch.float32).to(device)
+    HD_maps = torch.from_numpy(HD_maps).to(torch.float32).to(device)
+
+    return DTMs, weight_maps, HD_maps

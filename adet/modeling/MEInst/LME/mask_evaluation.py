@@ -22,7 +22,7 @@ VALUE_MIN = 0.01
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluation for PCA Mask Encoding.')
     parser.add_argument('--root', default='datasets', type=str)
-    parser.add_argument('--dataset', default='coco_2017_train', type=str)
+    parser.add_argument('--dataset', default='coco_2017_val', type=str)
     parser.add_argument('--matrix', default='coco/components/coco_2017_train'
                         '_class_agnosticTrue_whitenTrue_sigmoidTrue_60.npz', type=str)
     # mask encoding params.
@@ -31,7 +31,8 @@ def parse_args():
     parser.add_argument('--class_agnostic', default=True, type=bool)
     parser.add_argument('--whiten', default=True, type=bool)
     parser.add_argument('--sigmoid', default=True, type=bool)
-    parser.add_argument('--batch-size', default=1024, type=int)
+    parser.add_argument('--batch-size', default=1000, type=int)
+    parser.add_argument('--top-code', default=60, type=int)
     args = parser.parse_args()
     return args
 
@@ -59,11 +60,11 @@ if __name__ == "__main__":
     ratio_c = parameters['ratio_c']
     explained_variance_c = parameters['explained_variance_c']
 
-    # calculate the variance explained by the top-60 components
-    print(explained_variance_c, len(explained_variance_c[0]))
-    print(ratio_c, len(ratio_c[0]))
-    print('Total variance explained: ', np.sum(ratio_c[0]))
-    exit()
+    # # calculate the variance explained by the top-60 components
+    # print(explained_variance_c, len(explained_variance_c[0]))
+    # print(ratio_c, len(ratio_c[0]))
+    # print('Total variance explained: ', np.sum(ratio_c[0]))
+    # exit()
 
     if class_agnostic:
         components_c = np.squeeze(components_c)
@@ -79,6 +80,8 @@ if __name__ == "__main__":
     mask_data = MaskLoader(root=dataset_root, dataset=args.dataset, size=mask_size)
     mask_loader = DataLoader(mask_data, batch_size=args.batch_size, shuffle=False, num_workers=4)
     size_data = len(mask_loader)
+    all_masks = []
+    recon_masks = []
 
     # evaluation.
     IoUevaluate = IOUMetric(2)
@@ -96,17 +99,44 @@ if __name__ == "__main__":
             masks_random = inverse_sigmoid(masks_random)
         else:
             masks_random = masks
+
+        all_masks.append(masks)
         # --> encode --> decode.
         mask_rc = transform(masks_random, components_=components_c, explained_variance_=explained_variance_c,
                             mean_=mean_c, whiten=whiten)
-        mask_rc = inverse_transform(mask_rc, components_=components_c, explained_variance_=explained_variance_c,
+
+        # select top-k components
+        temp_mask_ = components_c * 0.
+        temp_mask_[:args.top_code, :] = 1
+        mask_rc = inverse_transform(mask_rc, components_=components_c * temp_mask_, explained_variance_=explained_variance_c,
                                     mean_=mean_c, whiten=whiten)
+
+        # mask_rc = inverse_transform(mask_rc, components_=components_c, explained_variance_=explained_variance_c,
+        #                             mean_=mean_c, whiten=whiten)
+
         # post-process.
         if sigmoid:
             mask_rc = direct_sigmoid(mask_rc)
         # eva.
+        recon_masks.append(mask_rc)
         mask_rc = np.where(mask_rc >= 0.5, 1, 0)
         IoUevaluate.add_batch(mask_rc, masks)
 
     _, _, _, mean_iu, _ = IoUevaluate.evaluate()
     print("The mIoU for {}: {}".format(args.matrix, mean_iu))
+
+    # calculate the variance explained by the top 60 codes
+    all_masks = np.concatenate(all_masks, axis=0)
+    recon_masks = np.concatenate(recon_masks, axis=0)
+    print('Total number of instances evaluated: ', all_masks.shape)
+    total_var = np.sum(np.var(all_masks, axis=0))
+    var_explained = []
+    print('For each shape: ', all_masks.shape, recon_masks.shape)
+    for i in range(all_masks.shape[0]):
+        rec_error = np.sum((all_masks[i, :] - recon_masks[i, :]) ** 2)
+
+        var_explained.append(1 - rec_error / total_var)
+
+    print('Total variance: ', total_var)
+    print('Variance explained: ', np.mean(var_explained))
+

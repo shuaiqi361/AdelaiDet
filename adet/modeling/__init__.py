@@ -7,7 +7,11 @@ from .roi_heads.text_head import TextHead
 from .batext import BAText
 from .MEInst import MEInst
 from .SMInst import SMInst
-from .DTInst import DTInst
+from .SMUPInst import SMUPInst
+# from .SparseMaskInst import SMInst
+# from .DTInst import DTInst
+from .DTMRInst import DTMRInst
+from .SparseDTMInst import DTInst
 from .condinst import condinst
 
 _EXCLUDE = {"torch", "ShapeSpec"}

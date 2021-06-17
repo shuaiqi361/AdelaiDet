@@ -199,8 +199,8 @@ class DTInstHead(nn.Module):
                 # conv type.
                 if use_deformable:
                     if self.last_deformable:
-                        # if i == num_convs - 1:
-                        if i % 2 == 0:
+                        if i == num_convs - 1:
+                        # if i % 2 == 0:
                             conv_func = DFConv2d
                             type_func = self.type_deformable
                         else:

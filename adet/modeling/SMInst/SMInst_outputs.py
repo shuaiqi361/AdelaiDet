@@ -63,7 +63,7 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_regression,
-            mask_activation,
+            mask_prediction,
             mask_encoding,
             focal_loss_alpha,
             focal_loss_gamma,
@@ -88,7 +88,8 @@ class SMInstOutputs(object):
         self.locations = locations
         self.mask_regression = mask_regression
         self.mask_encoding = mask_encoding
-        self.mask_activation = mask_activation
+        self.mask_prediction = mask_prediction
+        # self.mask_activation = mask_activation
         # self.mask_tower_interm_outputs = mask_tower_interm_outputs
 
         self.gt_instances = gt_instances
@@ -390,7 +391,7 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_pred,
-            mask_activation_pred,
+            mask_pred_decoded_list,
             mask_targets
     ):
         num_classes = logits_pred.size(1)
@@ -420,7 +421,9 @@ class SMInstOutputs(object):
         reg_targets = reg_targets[pos_inds]
         ctrness_pred = ctrness_pred[pos_inds]
         mask_pred = mask_pred[pos_inds]
-        mask_activation_pred = mask_activation_pred[pos_inds]
+        for i in range(len(mask_pred_decoded_list)):
+            mask_pred_decoded_list[i] = mask_pred_decoded_list[i][pos_inds]
+        # mask_activation_pred = mask_activation_pred[pos_inds]
 
         assert mask_pred.shape[0] == mask_targets.shape[0], \
             print("The number(positive) should be equal between "
@@ -443,20 +446,22 @@ class SMInstOutputs(object):
         ) / num_pos_avg
 
         mask_targets_ = self.mask_encoding.encoder(mask_targets)
-        mask_pred_, mask_pred_bin = self.mask_encoding.decoder(mask_pred, is_train=True)
+        # _, mask_pred_bin = self.mask_encoding.decoder(mask_pred, is_train=True)
+        # mask_pred_ = mask_pred_decoded
+        # mask_pred_bin = (mask_pred_ >= 1) * 1.
 
         # compute the loss for the activation code as binary classification
-        activation_targets = (torch.abs(mask_targets_) > 1e-4) * 1.
-        activation_loss = F.binary_cross_entropy_with_logits(
-            mask_activation_pred,
-            activation_targets,
-            reduction='none'
-        )
-        activation_loss = activation_loss.sum(1) * ctrness_targets
-        activation_loss = activation_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+        # activation_targets = (torch.abs(mask_targets_) > 1e-4) * 1.
+        # activation_loss = F.binary_cross_entropy_with_logits(
+        #     mask_activation_pred,
+        #     activation_targets,
+        #     reduction='none'
+        # )
+        # activation_loss = activation_loss.sum(1) * ctrness_targets
+        # activation_loss = activation_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
 
-        if self.thresh_with_active:
-            mask_pred = mask_pred * torch.sigmoid(mask_activation_pred)
+        # if self.thresh_with_active:
+        #     mask_pred = mask_pred * torch.sigmoid(mask_activation_pred)
 
         total_mask_loss = 0.
         if self.loss_on_mask:
@@ -464,25 +469,37 @@ class SMInstOutputs(object):
             # as sigmoid function is combined in loss.
             # mask_pred_, mask_pred_bin = self.mask_encoding.decoder(mask_pred, is_train=True)
             if 'mask_mse' in self.mask_loss_type:
-                mask_loss = F.mse_loss(
-                    mask_pred_,
-                    mask_targets,
-                    reduction='none'
-                )
-                mask_loss = mask_loss.sum(1) * ctrness_targets
-                mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                mask_loss = 0
+                for mask_pred_ in mask_pred_decoded_list:
+                    _loss = F.mse_loss(
+                        mask_pred_,
+                        mask_targets,
+                        reduction='none'
+                    )
+                    _loss = _loss.sum(1) * ctrness_targets
+                    _loss = _loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                    mask_loss += _loss
                 total_mask_loss += mask_loss
-            if 'mask_iou' in self.mask_loss_type:
-                overlap_ = torch.sum(mask_pred_bin * 1. * mask_targets, 1)
-                union_ = torch.sum((mask_pred_bin + mask_targets) >= 1., 1)
-                iou_loss = (1. - overlap_ / (union_ + 1e-4)) * ctrness_targets * self.mask_size ** 2
-                iou_loss = iou_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += iou_loss
-            if 'mask_difference' in self.mask_loss_type:
-                w_ = torch.abs(mask_pred_bin * 1. - mask_targets * 1)  # 1's are inconsistent pixels in hd_maps
-                md_loss = torch.sum(w_, 1) * ctrness_targets
-                md_loss = md_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += md_loss
+            # if 'mask_iou' in self.mask_loss_type:
+            #     overlap_ = torch.sum(mask_pred_bin * 1. * mask_targets, 1)
+            #     union_ = torch.sum((mask_pred_bin + mask_targets) >= 1., 1)
+            #     iou_loss = (1. - overlap_ / (union_ + 1e-4)) * ctrness_targets * self.mask_size ** 2
+            #     iou_loss = iou_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+            #     total_mask_loss += iou_loss
+            # if 'mask_difference' in self.mask_loss_type:
+            #     w_ = torch.abs(mask_pred_bin * 1. - mask_targets * 1)  # 1's are inconsistent pixels in hd_maps
+            #     md_loss = torch.sum(w_, 1) * ctrness_targets
+            #     md_loss = md_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+            #     total_mask_loss += md_loss
+            if 'mask_dice' in self.mask_loss_type:
+                dice_loss = 0
+                for mask_pred_ in mask_pred_decoded_list:
+                    overlap_ = torch.sum(mask_pred_ * 2. * mask_targets, 1)
+                    union_ = torch.sum(mask_pred_ ** 2, 1) + torch.sum(mask_targets ** 2, 1)
+                    _loss = (1. - overlap_ / (union_ + 1e-4)) * ctrness_targets * self.mask_size ** 2
+                    _loss = _loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                    dice_loss += _loss
+                total_mask_loss += dice_loss
         if self.loss_on_code:
             # m*m mask labels --> n_components encoding labels
             # mask_targets_ = self.mask_encoding.encoder(mask_targets)
@@ -581,7 +598,7 @@ class SMInstOutputs(object):
             "loss_SMInst_loc": reg_loss,
             "loss_SMInst_ctr": ctrness_loss,
             "loss_SMInst_mask": total_mask_loss,
-            "loss_SMInst_activation": activation_loss,
+            # "loss_SMInst_activation": activation_loss,
         }
         return losses, {}
 
@@ -637,12 +654,28 @@ class SMInstOutputs(object):
                 for x in self.mask_regression
             ], dim=0, )
 
-        mask_activation_pred = cat(
-            [
-                # Reshape: (N, D, Hi, Wi) -> (N, Hi, Wi, D) -> (N*Hi*Wi, D)
-                x.permute(0, 2, 3, 1).reshape(-1, self.num_codes)
-                for x in self.mask_activation
-            ], dim=0, )
+        # mask_activation_pred = cat(
+        #     [
+        #         # Reshape: (N, D, Hi, Wi) -> (N, Hi, Wi, D) -> (N*Hi*Wi, D)
+        #         x.permute(0, 2, 3, 1).reshape(-1, self.num_codes)
+        #         for x in self.mask_activation
+        #     ], dim=0, )
+
+        num_levels = len(self.mask_prediction)
+        num_outputs = len(self.mask_prediction[0])
+        mask_prediction_list = []
+        for m in range(num_outputs):
+            temp_ = []
+            for n in range(num_levels):
+                temp_.append(self.mask_prediction[n][m])
+
+            mask_prediction = cat(
+                [
+                    # Reshape: (N, D, Hi, Wi) -> (N, Hi, Wi, D) -> (N*Hi*Wi, D)
+                    x.permute(0, 2, 3, 1).reshape(-1, self.mask_size ** 2)
+                    for x in temp_
+                ], dim=0, )
+            mask_prediction_list.append(mask_prediction)
 
         # mask_tower_interm_outputs = []
         # for _outputs in self.mask_tower_interm_outputs:
@@ -668,28 +701,31 @@ class SMInstOutputs(object):
             reg_pred,
             ctrness_pred,
             mask_pred,
-            mask_activation_pred,
+            mask_prediction_list,
             mask_targets
         )
 
     def predict_proposals(self):
         sampled_boxes = []
+        mask_prediction = []  # only use the last output
+        for mp in self.mask_prediction:
+            mask_prediction.append(mp[-1])
 
         bundle = (
             self.locations, self.logits_pred,
             self.reg_pred, self.ctrness_pred,
-            self.strides, self.mask_regression, self.mask_activation
+            self.strides, self.mask_regression, mask_prediction
         )
 
-        for i, (l, o, r, c, s, mr, ma) in enumerate(zip(*bundle)):
+        for i, (l, o, r, c, s, mr, mp) in enumerate(zip(*bundle)):
             # recall that during training, we normalize regression targets with FPN's stride.
             # we denormalize them here.
             r = r * s
-            if self.thresh_with_active:
-                mr = mr * torch.sigmoid(ma)
+            # if self.thresh_with_active:
+            #     mr = mr * torch.sigmoid(ma)
             sampled_boxes.append(
                 self.forward_for_single_feature_map(
-                    l, o, r, c, mr, self.image_sizes
+                    l, o, r, c, mr, mp, self.image_sizes
                 )
             )
 
@@ -700,8 +736,9 @@ class SMInstOutputs(object):
         num_images = len(boxlists)
         for i in range(num_images):
             per_image_masks = boxlists[i].pred_masks
-            boxlists[i].pred_codes = per_image_masks
-            per_image_masks = self.mask_encoding.decoder(per_image_masks, is_train=False)
+            # boxlists[i].pred_codes = per_image_masks
+            # per_image_masks = self.mask_encoding.decoder(per_image_masks, is_train=False)
+            per_image_masks = torch.clamp(per_image_masks, min=0.001, max=0.999)
             per_image_masks = per_image_masks.view(-1, 1, self.mask_size, self.mask_size)
             boxlists[i].pred_masks = per_image_masks
 
@@ -709,7 +746,7 @@ class SMInstOutputs(object):
 
     def forward_for_single_feature_map(
             self, locations, box_cls,
-            reg_pred, ctrness, mask_regression, image_sizes
+            reg_pred, ctrness, mask_regression, mask_prediction, image_sizes
     ):
         N, C, H, W = box_cls.shape
 
@@ -722,6 +759,8 @@ class SMInstOutputs(object):
         ctrness = ctrness.reshape(N, -1).sigmoid()
         mask_regression = mask_regression.view(N, self.num_codes, H, W).permute(0, 2, 3, 1)
         mask_regression = mask_regression.reshape(N, -1, self.num_codes)
+        mask_prediction = mask_prediction.view(N, self.mask_size ** 2, H, W).permute(0, 2, 3, 1)
+        mask_prediction = mask_prediction.reshape(N, -1, self.mask_size ** 2)
 
         # if self.thresh_with_ctr is True, we multiply the classification
         # scores with centerness scores before applying the threshold.
@@ -749,7 +788,9 @@ class SMInstOutputs(object):
             per_box_regression = per_box_regression[per_box_loc]
             per_locations = locations[per_box_loc]
 
-            per_box_mask = mask_regression[i]
+            per_box_code = mask_regression[i]
+            per_box_code = per_box_code[per_box_loc]
+            per_box_mask = mask_prediction[i]
             per_box_mask = per_box_mask[per_box_loc]
 
             per_pre_nms_top_n = pre_nms_top_n[i]
@@ -761,6 +802,7 @@ class SMInstOutputs(object):
                 per_box_regression = per_box_regression[top_k_indices]
                 per_locations = per_locations[top_k_indices]
                 per_box_mask = per_box_mask[top_k_indices]
+                per_box_code = per_box_code[top_k_indices]
 
             detections = torch.stack([
                 per_locations[:, 0] - per_box_regression[:, 0],
@@ -775,6 +817,7 @@ class SMInstOutputs(object):
             boxlist.pred_classes = per_class
             boxlist.locations = per_locations
             boxlist.pred_masks = per_box_mask
+            boxlist.pred_codes = per_box_code
 
             results.append(boxlist)
 

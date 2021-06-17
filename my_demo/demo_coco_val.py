@@ -1,6 +1,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import argparse
-import glob
+import random
 import multiprocessing as mp
 import os
 import time
@@ -22,6 +22,29 @@ from adet.config import get_cfg
 
 # constants
 WINDOW_NAME = "COCO detections"
+COLOR_WORLD = ['navy', 'blue', 'aqua', 'teal', 'olive', 'green', 'lime', 'yellow', 'orange', 'red', 'maroon',
+               'fuchsia', 'purple', 'black', 'gray', 'silver']
+RGB_DICT = {'navy': (0, 38, 63), 'blue': (0, 120, 210), 'aqua': (115, 221, 252), 'teal': (15, 205, 202),
+            'olive': (52, 153, 114), 'green': (0, 204, 84), 'lime': (1, 255, 127), 'yellow': (255, 216, 70),
+            'orange': (255, 125, 57), 'red': (255, 47, 65), 'maroon': (135, 13, 75), 'fuchsia': (246, 0, 184),
+            'purple': (179, 17, 193), 'black': (24, 24, 24), 'gray': (168, 168, 168), 'silver': (220, 220, 220)}
+
+for k, v in RGB_DICT.items():
+    RGB_DICT[k] = (v[2], v[1], v[0])  # RGB to BGR
+
+
+def switch_tuple(input_tuple):
+    return (input_tuple[2], input_tuple[1], input_tuple[0])
+
+
+nice_colors = {
+    'person': switch_tuple(RGB_DICT['orange']), 'car': switch_tuple(RGB_DICT['green']),
+    'bus': switch_tuple(RGB_DICT['lime']), 'truck': switch_tuple(RGB_DICT['olive']),
+    'bicycle': switch_tuple(RGB_DICT['maroon']), 'motorcycle': switch_tuple(RGB_DICT['fuchsia']),
+    'cyclist': switch_tuple(RGB_DICT['yellow']), 'pedestrian': switch_tuple(RGB_DICT['orange']),
+    'tram': switch_tuple(RGB_DICT['purple']), 'van': switch_tuple(RGB_DICT['teal']),
+    'misc': switch_tuple(RGB_DICT['navy'])
+}
 
 
 def setup_cfg(args):
@@ -58,7 +81,7 @@ def get_parser():
     parser.add_argument(
         "--output",
         help="A file or directory to save output visualizations. "
-        "If not given, will show output in an OpenCV window.",
+             "If not given, will show output in an OpenCV window.",
     )
 
     parser.add_argument(
@@ -115,10 +138,15 @@ if __name__ == "__main__":
         start_time = time.time()
         predictions, visualized_output = demo.run_on_image(img)
         # print(predictions["instances"])
+<<<<<<< HEAD
         codes_ = predictions["instances"].pred_codes.cpu().numpy()
         # if len(codes_) == 0:
         #     continue
         pred_codes.append(codes_)
+=======
+        # codes_ = predictions["instances"].pred_codes.cpu().numpy()
+        # pred_codes.append(codes_)
+>>>>>>> 372d84c8542e137c4cbd2c01faff661f235afeff
 
         logger.info(
             "{}: detected {} instances in {:.2f}s".format(
@@ -135,6 +163,32 @@ if __name__ == "__main__":
         # plt.title('Histogram of sparse codes')
         # plt.show()
 
+        # show ground truth
+        ann_ids = coco.getAnnIds(imgIds=img_id)
+        gt_anns = coco.loadAnns(ids=ann_ids)
+
+        image = cv2.imread(image_path, cv2.IMREAD_COLOR)
+        if image is None:
+            continue
+        print('Loading image of id:', img_id)
+
+        # plotting the groundtruth
+        gt_image = image.copy()
+        gt_blend_mask = np.zeros(shape=gt_image.shape, dtype=np.uint8)
+        for ann_ in gt_anns:
+            if ann_['iscrowd'] == 1:
+                continue
+            polygons_ = ann_['segmentation']
+            use_color_key = COLOR_WORLD[random.randint(1, len(COLOR_WORLD)) - 1]
+            for poly in polygons_:
+                poly = np.array(poly).reshape((-1, 2))
+                cv2.polylines(gt_image, [poly.astype(np.int32)], True,
+                              color=switch_tuple(RGB_DICT[use_color_key]),
+                              thickness=2)
+                cv2.drawContours(gt_blend_mask, [poly.astype(np.int32)], contourIdx=-1,
+                                 color=switch_tuple(RGB_DICT[use_color_key]),
+                                 thickness=-1)
+
         if args.output:
             if os.path.isdir(args.output):
                 assert os.path.isdir(args.output), args.output
@@ -144,16 +198,29 @@ if __name__ == "__main__":
                 out_filename = args.output
             visualized_output.save(out_filename)
         else:
+<<<<<<< HEAD
             continue
             cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
             print('image id: ', img_id)
+=======
+            # continue
+            # cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
+
+            gt_dst_img = cv2.addWeighted(gt_image, 0.4, gt_blend_mask, 0.6, 0)
+            gt_dst_img[gt_blend_mask == 0] = gt_image[gt_blend_mask == 0]
+
+            cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
+
+            cv2.imshow('Pred vs. GT', cat_image)
+
+>>>>>>> 372d84c8542e137c4cbd2c01faff661f235afeff
             if cv2.waitKey() & 0xFF == ord('q'):
                 break
 
-    pred_codes = np.concatenate(pred_codes, axis=0)
-    sparsity_counts = np.sum(np.abs(pred_codes) > 1e-2)
-    num_obj, num_dim = pred_codes.shape
-    print('Overall sparsity: ', sparsity_counts * 1. / (num_obj * num_dim))
-
-    kur = np.sum(kurtosis(pred_codes, axis=1, fisher=True, bias=False)) / num_obj
-    print('Overall Kurtosis: ', kur)
+    # pred_codes = np.concatenate(pred_codes, axis=0)
+    # sparsity_counts = np.sum(np.abs(pred_codes) > 1e-2)
+    # num_obj, num_dim = pred_codes.shape
+    # print('Overall sparsity: ', sparsity_counts * 1. / (num_obj * num_dim))
+    #
+    # kur = np.sum(kurtosis(pred_codes, axis=1, fisher=True, bias=False)) / num_obj
+    # print('Overall Kurtosis: ', kur)

@@ -12,7 +12,6 @@ from adet.layers import DFConv2d, IOULoss, NaiveGroupNorm, GCN
 from .SMInst_outputs import SMInstOutputs
 from .SMEncoding import SparseMaskEncoding
 
-
 __all__ = ["SMInst"]
 
 INF = 100000000
@@ -32,25 +31,27 @@ class SMInst(nn.Module):
     """
     Implement Sparse Mask Encoding method.
     """
+
     def __init__(self, cfg, input_shape: Dict[str, ShapeSpec]):
         super().__init__()
         # fmt: off
-        self.cfg                  = cfg
-        self.in_features          = cfg.MODEL.SMInst.IN_FEATURES
-        self.fpn_strides          = cfg.MODEL.SMInst.FPN_STRIDES
-        self.focal_loss_alpha     = cfg.MODEL.SMInst.LOSS_ALPHA
-        self.focal_loss_gamma     = cfg.MODEL.SMInst.LOSS_GAMMA
-        self.center_sample        = cfg.MODEL.SMInst.CENTER_SAMPLE
-        self.strides              = cfg.MODEL.SMInst.FPN_STRIDES
-        self.radius               = cfg.MODEL.SMInst.POS_RADIUS
+        self.cfg = cfg
+        self.in_features = cfg.MODEL.SMInst.IN_FEATURES
+        self.fpn_strides = cfg.MODEL.SMInst.FPN_STRIDES
+        self.focal_loss_alpha = cfg.MODEL.SMInst.LOSS_ALPHA
+        self.focal_loss_gamma = cfg.MODEL.SMInst.LOSS_GAMMA
+        self.center_sample = cfg.MODEL.SMInst.CENTER_SAMPLE
+        self.strides = cfg.MODEL.SMInst.FPN_STRIDES
+        self.radius = cfg.MODEL.SMInst.POS_RADIUS
         self.pre_nms_thresh_train = cfg.MODEL.SMInst.INFERENCE_TH_TRAIN
-        self.pre_nms_thresh_test  = cfg.MODEL.SMInst.INFERENCE_TH_TEST
-        self.pre_nms_topk_train   = cfg.MODEL.SMInst.PRE_NMS_TOPK_TRAIN
-        self.pre_nms_topk_test    = cfg.MODEL.SMInst.PRE_NMS_TOPK_TEST
-        self.nms_thresh           = cfg.MODEL.SMInst.NMS_TH
-        self.post_nms_topk_train  = cfg.MODEL.SMInst.POST_NMS_TOPK_TRAIN
-        self.post_nms_topk_test   = cfg.MODEL.SMInst.POST_NMS_TOPK_TEST
-        self.thresh_with_ctr      = cfg.MODEL.SMInst.THRESH_WITH_CTR
+        self.pre_nms_thresh_test = cfg.MODEL.SMInst.INFERENCE_TH_TEST
+        self.pre_nms_topk_train = cfg.MODEL.SMInst.PRE_NMS_TOPK_TRAIN
+        self.pre_nms_topk_test = cfg.MODEL.SMInst.PRE_NMS_TOPK_TEST
+        self.nms_thresh = cfg.MODEL.SMInst.NMS_TH
+        self.post_nms_topk_train = cfg.MODEL.SMInst.POST_NMS_TOPK_TRAIN
+        self.post_nms_topk_test = cfg.MODEL.SMInst.POST_NMS_TOPK_TEST
+        self.thresh_with_ctr = cfg.MODEL.SMInst.THRESH_WITH_CTR
+
         # self.thresh_with_active   = cfg.MODEL.SMInst.THRESH_WITH_ACTIVE
         # fmt: on
         self.iou_loss = IOULoss(cfg.MODEL.SMInst.LOC_LOSS_TYPE)
@@ -82,7 +83,9 @@ class SMInst(nn.Module):
         """
         features = [features[f] for f in self.in_features]
         locations = self.compute_locations(features)
-        logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression, mask_activation = self.SMInst_head(features)
+        # logits_pred, reg_pred, ctrness_pred, bbox_towers, mask_regression, mask_activation = self.SMInst_head(features)
+        logits_pred, reg_pred, ctrness_pred, mask_prediction, mask_regression = self.SMInst_head(features,
+                                                                                                 self.mask_encoding)
 
         if self.training:
             pre_nms_thresh = self.pre_nms_thresh_train
@@ -90,12 +93,25 @@ class SMInst(nn.Module):
             post_nms_topk = self.post_nms_topk_train
             if not self.flag_parameters:
                 # encoding parameters.
+                # components_path = self.cfg.MODEL.SMInst.PATH_DICTIONARY
+                # parameters = np.load(components_path)
+                # device = torch.device(self.cfg.MODEL.DEVICE)
+                # with torch.no_grad():
+                #     dictionary = nn.Parameter(torch.from_numpy(parameters).float().to(device), requires_grad=False)
+                #     self.mask_encoding.dictionary = dictionary
                 components_path = self.cfg.MODEL.SMInst.PATH_DICTIONARY
                 parameters = np.load(components_path)
+                learned_dict = parameters['shape_basis']
+                shape_mean = parameters['shape_mean']
+                shape_std = parameters['shape_std']
                 device = torch.device(self.cfg.MODEL.DEVICE)
                 with torch.no_grad():
-                    dictionary = nn.Parameter(torch.from_numpy(parameters).float().to(device), requires_grad=False)
+                    dictionary = nn.Parameter(torch.from_numpy(learned_dict).float().to(device), requires_grad=False)
+                    shape_mean = nn.Parameter(torch.from_numpy(shape_mean).float().to(device), requires_grad=False)
+                    shape_std = nn.Parameter(torch.from_numpy(shape_std).float().to(device), requires_grad=False)
                     self.mask_encoding.dictionary = dictionary
+                    self.mask_encoding.shape_mean = shape_mean
+                    self.mask_encoding.shape_std = shape_std
 
                 self.flag_parameters = True
         else:
@@ -110,7 +126,7 @@ class SMInst(nn.Module):
             reg_pred,
             ctrness_pred,
             mask_regression,
-            mask_activation,
+            mask_prediction,
             self.mask_encoding,
             self.focal_loss_alpha,
             self.focal_loss_gamma,
@@ -176,6 +192,9 @@ class SMInstHead(nn.Module):
         self.num_codes = cfg.MODEL.SMInst.NUM_CODE
         self.use_gcn_in_mask = cfg.MODEL.SMInst.USE_GCN_IN_MASK
         self.gcn_kernel_size = cfg.MODEL.SMInst.GCN_KERNEL_SIZE
+        self.mask_size = cfg.MODEL.SMInst.MASK_SIZE
+        self.if_whiten = cfg.MODEL.SMInst.WHITEN
+        self.mask_refinement_iter = cfg.MODEL.SMInst.MASK_REFINEMENT_ITER
 
         head_configs = {"cls": (cfg.MODEL.SMInst.NUM_CLS_CONVS,
                                 cfg.MODEL.SMInst.USE_DEFORMABLE),
@@ -185,10 +204,6 @@ class SMInstHead(nn.Module):
                                   cfg.MODEL.SMInst.USE_DEFORMABLE),
                         "mask": (cfg.MODEL.SMInst.NUM_MASK_CONVS,
                                  cfg.MODEL.SMInst.USE_DEFORMABLE)}
-        # head_configs = {"cls": (cfg.MODEL.SMInst.NUM_CLS_CONVS,
-        #                         cfg.MODEL.SMInst.USE_DEFORMABLE),
-        #                 "bbox": (cfg.MODEL.SMInst.NUM_BOX_CONVS,
-        #                          cfg.MODEL.SMInst.USE_DEFORMABLE)}
 
         self.type_deformable = cfg.MODEL.SMInst.TYPE_DEFORMABLE
         self.last_deformable = cfg.MODEL.SMInst.LAST_DEFORMABLE
@@ -205,7 +220,7 @@ class SMInstHead(nn.Module):
                 # conv type.
                 if use_deformable:
                     if self.last_deformable:
-                        if i % 2 == 0:
+                        if i == num_convs - 1:
                             conv_func = DFConv2d
                             type_func = self.type_deformable
                         else:
@@ -249,10 +264,6 @@ class SMInstHead(nn.Module):
                 tower.append(nn.ReLU())
 
             self.add_module('{}_tower'.format(head), nn.Sequential(*tower))
-            # if head != 'mask':
-            #     self.add_module('{}_tower'.format(head), nn.Sequential(*tower))
-            # else:
-            #     self.add_module('{}_tower'.format(head), nn.ModuleList(tower))
 
         self.cls_logits = nn.Conv2d(
             in_channels, self.num_classes,
@@ -268,18 +279,62 @@ class SMInstHead(nn.Module):
             stride=1, padding=1
         )
 
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels, kernel_size=1, stride=1, padding=0),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+        #     nn.Sigmoid(),
+        # )
+        self.residual = nn.Sequential(
+            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+            nn.Sigmoid(),
+        )
+
+        self.mask_fusion = nn.Sequential(
+            nn.Conv2d(in_channels * 2, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.ReLU()
+        )
+
+        self.bbox_fusion = nn.Sequential(
+            nn.Conv2d(in_channels + self.mask_size ** 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(in_channels * 2, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.ReLU()
+        )
+
+        # if self.use_gcn_in_mask:
+        #     self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
+        # else:
+        #     self.mask_pred = nn.Conv2d(
+        #         in_channels, self.num_codes, kernel_size=3,
+        #         stride=1, padding=1
+        #     )
+
         if self.use_gcn_in_mask:
-            self.mask_pred = GCN(in_channels, self.num_codes, k=self.gcn_kernel_size)
+            self.mask_pred = nn.Sequential(
+                nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(),
+                GCN(in_channels, self.num_codes, k=self.gcn_kernel_size),
+            )
         else:
-            self.mask_pred = nn.Conv2d(
-                in_channels, self.num_codes, kernel_size=3,
-                stride=1, padding=1
+            self.mask_pred = nn.Sequential(
+                nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(in_channels, self.num_codes, kernel_size=1, stride=1, padding=0)
             )
 
-        self.mask_active = nn.Conv2d(
-            in_channels, self.num_codes, kernel_size=3,
-            stride=1, padding=1
-        )
+        # self.mask_active = nn.Conv2d(
+        #     in_channels, self.num_codes, kernel_size=3,
+        #     stride=1, padding=1
+        # )
 
         if cfg.MODEL.SMInst.USE_SCALE:
             self.scales = nn.ModuleList([Scale(init_value=1.0) for _ in self.fpn_strides])
@@ -290,7 +345,7 @@ class SMInstHead(nn.Module):
             self.cls_tower, self.bbox_tower,
             self.share_tower, self.cls_logits,
             self.bbox_pred, self.ctrness,
-            self.mask_tower, self.mask_pred, self.mask_active
+            self.mask_tower, self.mask_pred, self.mask_fusion, self.bbox_fusion, self.residual
         ]:
             for l in modules.modules():
                 if isinstance(l, nn.Conv2d):
@@ -302,13 +357,13 @@ class SMInstHead(nn.Module):
         bias_value = -math.log((1 - prior_prob) / prior_prob)
         torch.nn.init.constant_(self.cls_logits.bias, bias_value)
 
-    def forward(self, x):
+    def forward(self, x, mask_encoding):
         logits = []
         bbox_reg = []
         ctrness = []
-        bbox_towers = []
-        mask_reg = []
-        mask_active = []
+        mask_reg = []  # this is the codes
+        mask_pred = []  # this is the actual masks
+        # mask_active = []
         # mask_tower_interm_outputs = []
         for l, feature in enumerate(x):
             feature = self.share_tower(feature)
@@ -316,29 +371,52 @@ class SMInstHead(nn.Module):
             bbox_tower = self.bbox_tower(feature)
 
             logits.append(self.cls_logits(cls_tower))
+
+            # Mask Encoding
+            mask_tower = self.mask_tower(feature)
+            mask_code_features = torch.cat([mask_tower, cls_tower], dim=1)
+            mask_code_fused_features = self.mask_fusion(mask_code_features)
+            mask_code_prediction = self.mask_pred(mask_code_fused_features)
+            mask_reg.append(mask_code_prediction)
+
+            with torch.no_grad():
+                if self.if_whiten:
+                    init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1).contiguous(),
+                                             mask_encoding.dictionary) * mask_encoding.shape_std.view(1, 1, 1, -1) + \
+                                mask_encoding.shape_mean.view(1, 1, 1, -1)
+                else:
+                    init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1).contiguous(),
+                                             mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
+
+            # residual_features = torch.cat([cls_tower, bbox_tower, init_mask.permute(0, 3, 1, 2)],
+            #                               dim=1)
+            residual_features = init_mask.permute(0, 3, 1, 2).contiguous()  # initialized as the decoded masks
+            iter_output = []
+
+            # Iterations for refinement
+            for _ in range(self.mask_refinement_iter):
+                fused_features = torch.cat([bbox_tower, mask_tower, residual_features], dim=1)
+                residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1]
+                residual_features = residual_mask + residual_features
+                bbox_tower = self.bbox_fusion(torch.cat([bbox_tower, residual_features], dim=1))
+                iter_output.append(residual_features)
+
+            if self.mask_refinement_iter < 1:
+                mask_pred.append([residual_features])
+            else:
+                mask_pred.append(iter_output)
+
             ctrness.append(self.ctrness(bbox_tower))
             reg = self.bbox_pred(bbox_tower)
             if self.scales is not None:
                 reg = self.scales[l](reg)
+
             # Note that we use relu, as in the improved SMInst, instead of exp.
             bbox_reg.append(F.relu(reg))
-
-            # Mask Encoding
-            # mask_tower_interm_output = []
-            # for i, _layer in enumerate(self.mask_tower):
-            #     feature = _layer(feature)
-            #     if self.norm is not None and i % 3 == 0:
-            #         # print('append feature: ', i, feature.size())
-            #         mask_tower_interm_output.append(feature)
-            #     elif self.norm is None and i % 2 == 0:
-            #         mask_tower_interm_output.append(feature)
-
-            mask_tower = self.mask_tower(feature)
-            mask_reg.append(self.mask_pred(mask_tower))
-            mask_active.append(self.mask_active(mask_tower))
 
             # mask_reg.append(self.mask_pred(cls_tower))
             # mask_active.append(self.mask_active(cls_tower))
             # mask_tower_interm_outputs.append(mask_tower_interm_output)
 
-        return logits, bbox_reg, ctrness, bbox_towers, mask_reg, mask_active  #, mask_tower_interm_outputs
+        # return logits, bbox_reg, ctrness, bbox_towers, mask_reg, mask_active  #, mask_tower_interm_outputs
+        return logits, bbox_reg, ctrness, mask_pred, mask_reg
