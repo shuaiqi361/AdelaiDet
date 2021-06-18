@@ -59,6 +59,7 @@ def setup_cfg(args):
     cfg.MODEL.MEInst.INFERENCE_TH_TEST = args.confidence_threshold
     cfg.MODEL.SMInst.INFERENCE_TH_TEST = args.confidence_threshold
     cfg.MODEL.DTInst.INFERENCE_TH_TEST = args.confidence_threshold
+    cfg.MODEL.DTMRInst.INFERENCE_TH_TEST = args.confidence_threshold
     cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = args.confidence_threshold
     cfg.freeze()
     return cfg
@@ -138,15 +139,14 @@ if __name__ == "__main__":
         start_time = time.time()
         predictions, visualized_output = demo.run_on_image(img)
         # print(predictions["instances"])
-<<<<<<< HEAD
-        codes_ = predictions["instances"].pred_codes.cpu().numpy()
+
+        # codes_ = predictions["instances"].pred_codes.cpu().numpy()
         # if len(codes_) == 0:
         #     continue
-        pred_codes.append(codes_)
-=======
+        # pred_codes.append(codes_)
+
         # codes_ = predictions["instances"].pred_codes.cpu().numpy()
         # pred_codes.append(codes_)
->>>>>>> 372d84c8542e137c4cbd2c01faff661f235afeff
 
         logger.info(
             "{}: detected {} instances in {:.2f}s".format(
@@ -198,22 +198,18 @@ if __name__ == "__main__":
                 out_filename = args.output
             visualized_output.save(out_filename)
         else:
-<<<<<<< HEAD
-            continue
             cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
             print('image id: ', img_id)
-=======
             # continue
             # cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
 
-            gt_dst_img = cv2.addWeighted(gt_image, 0.4, gt_blend_mask, 0.6, 0)
-            gt_dst_img[gt_blend_mask == 0] = gt_image[gt_blend_mask == 0]
+            # gt_dst_img = cv2.addWeighted(gt_image, 0.4, gt_blend_mask, 0.6, 0)
+            # gt_dst_img[gt_blend_mask == 0] = gt_image[gt_blend_mask == 0]
+            #
+            # cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
+            #
+            # cv2.imshow('Pred vs. GT', cat_image)
 
-            cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
-
-            cv2.imshow('Pred vs. GT', cat_image)
-
->>>>>>> 372d84c8542e137c4cbd2c01faff661f235afeff
             if cv2.waitKey() & 0xFF == ord('q'):
                 break
 

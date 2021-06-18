@@ -134,6 +134,7 @@ def setup_cfg(args):
     cfg.MODEL.MEInst.INFERENCE_TH_TEST = args.confidence_threshold
     cfg.MODEL.SMInst.INFERENCE_TH_TEST = args.confidence_threshold
     cfg.MODEL.DTInst.INFERENCE_TH_TEST = args.confidence_threshold
+    cfg.MODEL.DTMRInst.INFERENCE_TH_TEST = args.confidence_threshold
     cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = args.confidence_threshold
     cfg.freeze()
     return cfg
@@ -181,12 +182,12 @@ def get_parser():
     parser.add_argument(
         "--video-width",
         type=int,
-        default=1920,
+        default=1280,
     )
     parser.add_argument(
         "--video-height",
         type=int,
-        default=1080,
+        default=720,
     )
     parser.add_argument(
         "--fps",
