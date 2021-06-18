@@ -281,12 +281,32 @@ class DTMRInstHead(nn.Module):
         #     nn.Sigmoid(),
         # )
 
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
+        #     nn.Sigmoid(),
+        # )
+
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
+        #     nn.Sigmoid(),
+        # )
+
         self.residual = nn.Sequential(
-            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1,
+                      groups=self.mask_size),
             nn.ReLU(),
-            nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1,
+                      groups=self.mask_size),
             nn.Sigmoid(),
         )
 
