@@ -52,8 +52,6 @@ class DTMRInst(nn.Module):
         self.post_nms_topk_test = cfg.MODEL.DTMRInst.POST_NMS_TOPK_TEST
         self.thresh_with_ctr = cfg.MODEL.DTMRInst.THRESH_WITH_CTR
         self.mask_size = cfg.MODEL.DTMRInst.MASK_SIZE
-        self.allow_code_thresholding = cfg.MODEL.DTMRInst.ALLOW_CODE_THRESHOLDING
-        self.code_threshold = cfg.MODEL.DTMRInst.CODE_THRESHOLDING_THRESHOLD
 
         # fmt: on
         self.iou_loss = IOULoss(cfg.MODEL.DTMRInst.LOC_LOSS_TYPE)
@@ -190,6 +188,8 @@ class DTMRInstHead(nn.Module):
         self.mask_size = cfg.MODEL.DTMRInst.MASK_SIZE
         self.if_whiten = cfg.MODEL.DTMRInst.WHITEN
         self.mask_refinement_iter = cfg.MODEL.DTMRInst.MASK_REFINEMENT_ITER
+        self.allow_code_thresholding = cfg.MODEL.DTMRInst.ALLOW_CODE_THRESHOLDING
+        self.code_threshold = cfg.MODEL.DTMRInst.CODE_THRESHOLDING_THRESHOLD
 
         head_configs = {"cls": (cfg.MODEL.DTMRInst.NUM_CLS_CONVS,
                                 cfg.MODEL.DTMRInst.USE_DEFORMABLE),
