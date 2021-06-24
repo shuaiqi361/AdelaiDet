@@ -52,6 +52,8 @@ class DTMRInst(nn.Module):
         self.post_nms_topk_test = cfg.MODEL.DTMRInst.POST_NMS_TOPK_TEST
         self.thresh_with_ctr = cfg.MODEL.DTMRInst.THRESH_WITH_CTR
         self.mask_size = cfg.MODEL.DTMRInst.MASK_SIZE
+        self.allow_code_thresholding = cfg.MODEL.DTMRInst.ALLOW_CODE_THRESHOLDING
+        self.code_threshold = cfg.MODEL.DTMRInst.CODE_THRESHOLDING_THRESHOLD
 
         # fmt: on
         self.iou_loss = IOULoss(cfg.MODEL.DTMRInst.LOC_LOSS_TYPE)
@@ -272,43 +274,43 @@ class DTMRInstHead(nn.Module):
             stride=1, padding=1
         )
 
-        # self.residual = nn.Sequential(
-        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
-        #     nn.Sigmoid(),
-        # )
-
-        # self.residual = nn.Sequential(
-        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
-        #     nn.Sigmoid(),
-        # )
-
-        # self.residual = nn.Sequential(
-        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
-        #     nn.Sigmoid(),
-        # )
-
         self.residual = nn.Sequential(
-            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
             nn.ReLU(),
-            nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1,
-                      groups=self.mask_size),
+            nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1,
-                      groups=self.mask_size),
+            nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
             nn.Sigmoid(),
         )
+
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
+        #     nn.Sigmoid(),
+        # )
+
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
+        #     nn.Sigmoid(),
+        # )
+
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1,
+        #               groups=self.mask_size),
+        #     nn.ReLU(),
+        #     nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1,
+        #               groups=self.mask_size),
+        #     nn.Sigmoid(),
+        # )
 
         self.mask_fusion = nn.Sequential(
             nn.Conv2d(in_channels * 3, in_channels, kernel_size=3, stride=1, padding=1),
@@ -370,6 +372,9 @@ class DTMRInstHead(nn.Module):
             mask_code_features = torch.cat([mask_tower, cls_tower, bbox_tower], dim=1)
             mask_code_fused_features = self.mask_fusion(mask_code_features)
             mask_code_prediction = self.mask_pred(mask_code_fused_features)
+            if not self.training and self.allow_code_thresholding:
+                with torch.no_grad():
+                    mask_code_prediction = (torch.abs(mask_code_prediction) > self.code_threshold) * mask_code_prediction
             mask_reg.append(mask_code_prediction)
 
             with torch.no_grad():

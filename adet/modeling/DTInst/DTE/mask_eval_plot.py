@@ -19,6 +19,7 @@ from utils import (
 )
 
 sns.set_theme()
+sns.set(font_scale=2.4)
 np.random.seed(0)
 
 def parse_args():
@@ -36,7 +37,7 @@ def parse_args():
     parser.add_argument('--mask_size', default=28, type=int)
     parser.add_argument('--n_codes', default=64, type=int)
     parser.add_argument('--n_vertices', default=360, type=int)
-    parser.add_argument('--sparse_alpha', default=0.50, type=float)
+    parser.add_argument('--sparse_alpha', default=0.30, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     args = parser.parse_args()
     return args
@@ -89,15 +90,30 @@ if __name__ == "__main__":
         # dtms_rc = np.where(dtms_rc > 0.4, 1, 0)
         IoUevaluate.add_batch(dtms_rc, masks.numpy())
         codes.append(dtms_codes.numpy())
+
+        # do some plots
+        for plot_data in dtms_codes.numpy():
+            ax = sns.heatmap(np.abs(plot_data.reshape((8, 8))), linewidths=.5)
+
+            ax.axes.get_xaxis().set_visible(False)
+            ax.axes.get_yaxis().set_visible(False)
+            # cbar = ax.colorbar(surf, shrink=0.8, aspect=20, fraction=.12, pad=.02)
+            # cbar.set_label('Magnitude', size=16)
+            # # access to cbar tick labels:
+            # cbar.ax.tick_params(labelsize=20)
+
+            plt.show()
         # break
 
-    codes = np.concatenate(codes, axis=0)  # n_data, n_codes
-    # plot heatmap for active coefficeints, show frequency
-    # plot_data = np.sum(np.abs(codes), axis=0) / len(codes)
-    plot_data = np.abs(codes[0])
-    print(plot_data.shape, len(codes))
-    ax = sns.heatmap(plot_data.reshape((8, 8)), linewidths=.5, annot=True, fmt=".2f")
-    plt.show()
+    # codes = np.concatenate(codes, axis=0)  # n_data, n_codes
+    # # plot heatmap for active coefficeints, show frequency
+    # # plot_data = np.sum(np.abs(codes), axis=0) / len(codes)
+    # plot_data = np.abs(codes[0])
+    # print(plot_data.shape, len(codes))
+    # # ax = sns.heatmap(plot_data.reshape((8, 8)), linewidths=.5, annot=True, fmt=".2f")
+    # ax = sns.heatmap(plot_data.reshape((8, 8)), linewidths=.5, fontsize=26)
+    #
+    # plt.show()
     # exit()
 
     _, _, _, mean_iu, _ = IoUevaluate.evaluate()
