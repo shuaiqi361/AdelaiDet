@@ -5,7 +5,7 @@ import multiprocessing as mp
 import os
 import time
 import cv2
-import tqdm
+import random
 import matplotlib.pyplot as plt
 from scipy.stats import kurtosis
 
@@ -121,8 +121,17 @@ if __name__ == "__main__":
         dataset_name = 'coco_2017_train'
 
     coco = COCO(annotation_file)
-    imgIds = coco.getImgIds()
+    # imgIds = coco.getImgIds()
+    # random.shuffle(imgIds)
+    # imgIds = np.sort(coco.getImgIds())
+    # imgIds = coco.getImgIds()
+
+    imgIds = [480985, 25560, 314294, 360661, 430961, 551215, 301135, 459153, 321333,
+              190756, 110638, 173033, 255664, 369081, 263969, 90284, 33707, 509735,
+              194471, 425702, 525322, 357081, 60347, 60102, 210708, 110638, 526706,
+              343934]
     pred_codes = []
+    id_cnt = 0
 
     for img_id in imgIds:
         img = coco.loadImgs(img_id)[0]
@@ -170,7 +179,7 @@ if __name__ == "__main__":
         image = cv2.imread(image_path, cv2.IMREAD_COLOR)
         if image is None:
             continue
-        print('Loading image of id:', img_id)
+        # print('Loading image of id:', img_id)
 
         # plotting the groundtruth
         gt_image = image.copy()
@@ -198,8 +207,8 @@ if __name__ == "__main__":
                 out_filename = args.output
             visualized_output.save(out_filename)
         else:
-            cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
-            print('image id: ', img_id)
+            # cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
+            # print('Displaying image with id: ', img_id)
             # continue
             # cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
 
@@ -209,9 +218,22 @@ if __name__ == "__main__":
             # cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
             #
             # cv2.imshow('Pred vs. GT', cat_image)
+            #
+            # if cv2.waitKey() & 0xFF == ord('q'):
+            #     break
 
-            if cv2.waitKey() & 0xFF == ord('q'):
-                break
+            save_path = '/home/keyi/Documents/research/code/AdelaiDet/experiments/res50_meinst_001/images'
+            id_cnt += 1
+            gt_dst_img = cv2.addWeighted(gt_image, 0.4, gt_blend_mask, 0.6, 0)
+            gt_dst_img[gt_blend_mask == 0] = gt_image[gt_blend_mask == 0]
+
+            gt_name = 'gt_{:02d}.png'.format(id_cnt)
+            cv2.imwrite(os.path.join(save_path, gt_name), gt_dst_img)
+
+            dtm_name = 'dtmrinst_{:02d}.png'.format(id_cnt)
+            # cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
+
+            cv2.imwrite(os.path.join(save_path, dtm_name), visualized_output.get_image()[:, :, ::-1])
 
     # pred_codes = np.concatenate(pred_codes, axis=0)
     # sparsity_counts = np.sum(np.abs(pred_codes) > 1e-2)

@@ -4,15 +4,15 @@ MODEL:
   RESNETS:
     DEPTH: 50
   MEInst:
-    DIM_MASK: 128
+    DIM_MASK: 60
     MASK_SIZE: 28
     LOSS_ON_MASK: False
     LOSS_ON_CODE: True
     MASK_LOSS_TYPE: ['mse']
-    USE_DEFORMABLE: False
-    LAST_DEFORMABLE: False
-    TYPE_DEFORMABLE: "DCNv2"
-    PATH_COMPONENTS: "/home/lab2/keyi/data/coco/components/coco_2017_train_class_agnosticTrue_whitenTrue_sigmoidTrue_128.npz"
+    USE_DEFORMABLE: True
+    LAST_DEFORMABLE: True
+    TYPE_DEFORMABLE: "DCNv1"
+    PATH_COMPONENTS: "/home/keyi/Documents/research/code/AdelaiDet/experiments/res50_meinst_001/coco_2017_train_class_agnosticTrue_whitenTrue_sigmoidTrue_60.npz"
 INPUT:
   MIN_SIZE_TRAIN: (400,)
 SOLVER:
