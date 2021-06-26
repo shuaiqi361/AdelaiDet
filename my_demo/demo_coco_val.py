@@ -121,15 +121,15 @@ if __name__ == "__main__":
         dataset_name = 'coco_2017_train'
 
     coco = COCO(annotation_file)
-    # imgIds = coco.getImgIds()
+    imgIds = coco.getImgIds()
     # random.shuffle(imgIds)
     # imgIds = np.sort(coco.getImgIds())
     # imgIds = coco.getImgIds()
 
-    imgIds = [480985, 25560, 314294, 360661, 430961, 551215, 301135, 459153, 321333,
-              190756, 110638, 173033, 255664, 369081, 263969, 90284, 33707, 509735,
-              194471, 425702, 525322, 357081, 60347, 60102, 210708, 110638, 526706,
-              343934]
+    # imgIds = [480985, 25560, 314294, 360661, 430961, 551215, 301135, 459153, 321333,
+    #           190756, 110638, 173033, 255664, 369081, 263969, 90284, 33707, 509735,
+    #           194471, 425702, 525322, 357081, 60347, 60102, 210708, 110638, 526706,
+    #           343934]
     pred_codes = []
     id_cnt = 0
 
@@ -149,10 +149,10 @@ if __name__ == "__main__":
         predictions, visualized_output = demo.run_on_image(img)
         # print(predictions["instances"])
 
-        # codes_ = predictions["instances"].pred_codes.cpu().numpy()
-        # if len(codes_) == 0:
-        #     continue
-        # pred_codes.append(codes_)
+        codes_ = predictions["instances"].pred_codes.cpu().numpy()
+        if len(codes_) == 0:
+            continue
+        pred_codes.append(codes_)
 
         # codes_ = predictions["instances"].pred_codes.cpu().numpy()
         # pred_codes.append(codes_)
@@ -163,14 +163,29 @@ if __name__ == "__main__":
             )
         )
 
-        # # plot histogram of codes
-        # fig = plt.figure()
-        # arr = plt.hist(codes_.reshape((-1,)).tolist(), bins=30, color='g', density=True)
-        # plt.rcParams.update({'font.size': 8})
-        # plt.xlabel('Sparse Codes')
-        # plt.xlabel('Counts')
-        # plt.title('Histogram of sparse codes')
-        # plt.show()
+        # plot histogram of codes
+        # sinh[𝛿sinh−1(𝑥)−𝜖]
+        # inverse: sinh[𝛿−1(sinh−1(𝑥)+𝜖)]
+        fig = plt.figure()
+        plt.subplot(121)
+        arr = plt.hist(codes_.reshape((-1,)).tolist(), bins=50, color='g', density=True)
+        plt.rcParams.update({'font.size': 8})
+        plt.xlabel('Sparse Codes')
+        plt.ylabel('Counts')
+        plt.title('Histogram of sparse codes')
+
+        plt.subplot(122)
+        transformed_codes = codes_.reshape((-1,))
+        avg_mag = np.mean(np.abs(transformed_codes))
+        transformed_codes = 1 * np.sinh((np.arcsinh(transformed_codes) + 0) / 0.75)
+        transformed_codes = transformed_codes / np.mean(np.abs(transformed_codes)) * avg_mag
+        arr = plt.hist(transformed_codes.tolist(), bins=50, color='g', density=True)
+        plt.rcParams.update({'font.size': 8})
+        plt.xlabel('Sparse Codes')
+        plt.ylabel('Counts')
+        plt.title('Histogram of transformed sparse codes')
+        plt.show()
+        exit()
 
         # show ground truth
         ann_ids = coco.getAnnIds(imgIds=img_id)
@@ -212,33 +227,33 @@ if __name__ == "__main__":
             # continue
             # cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
 
-            # gt_dst_img = cv2.addWeighted(gt_image, 0.4, gt_blend_mask, 0.6, 0)
-            # gt_dst_img[gt_blend_mask == 0] = gt_image[gt_blend_mask == 0]
-            #
-            # cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
-            #
-            # cv2.imshow('Pred vs. GT', cat_image)
-            #
-            # if cv2.waitKey() & 0xFF == ord('q'):
-            #     break
-
-            save_path = '/home/keyi/Documents/research/code/AdelaiDet/experiments/res50_meinst_001/images'
-            id_cnt += 1
             gt_dst_img = cv2.addWeighted(gt_image, 0.4, gt_blend_mask, 0.6, 0)
             gt_dst_img[gt_blend_mask == 0] = gt_image[gt_blend_mask == 0]
 
-            gt_name = 'gt_{:02d}.png'.format(id_cnt)
-            cv2.imwrite(os.path.join(save_path, gt_name), gt_dst_img)
+            cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
 
-            dtm_name = 'dtmrinst_{:02d}.png'.format(id_cnt)
-            # cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
+            cv2.imshow('Pred vs. GT', cat_image)
 
-            cv2.imwrite(os.path.join(save_path, dtm_name), visualized_output.get_image()[:, :, ::-1])
+            if cv2.waitKey() & 0xFF == ord('q'):
+                break
 
-    # pred_codes = np.concatenate(pred_codes, axis=0)
-    # sparsity_counts = np.sum(np.abs(pred_codes) > 1e-2)
-    # num_obj, num_dim = pred_codes.shape
-    # print('Overall sparsity: ', sparsity_counts * 1. / (num_obj * num_dim))
-    #
-    # kur = np.sum(kurtosis(pred_codes, axis=1, fisher=True, bias=False)) / num_obj
-    # print('Overall Kurtosis: ', kur)
+            # save_path = '/home/keyi/Documents/research/code/AdelaiDet/experiments/res50_meinst_001/images'
+            # id_cnt += 1
+            # gt_dst_img = cv2.addWeighted(gt_image, 0.4, gt_blend_mask, 0.6, 0)
+            # gt_dst_img[gt_blend_mask == 0] = gt_image[gt_blend_mask == 0]
+            #
+            # gt_name = 'gt_{:02d}.png'.format(id_cnt)
+            # cv2.imwrite(os.path.join(save_path, gt_name), gt_dst_img)
+            #
+            # dtm_name = 'dtmrinst_{:02d}.png'.format(id_cnt)
+            # # cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
+            #
+            # cv2.imwrite(os.path.join(save_path, dtm_name), visualized_output.get_image()[:, :, ::-1])
+
+    pred_codes = np.concatenate(pred_codes, axis=0)
+    sparsity_counts = np.sum(np.abs(pred_codes) > 1e-2)
+    num_obj, num_dim = pred_codes.shape
+    print('Overall sparsity: ', sparsity_counts * 1. / (num_obj * num_dim))
+
+    kur = np.sum(kurtosis(pred_codes, axis=1, fisher=True, bias=False)) / num_obj
+    print('Overall Kurtosis: ', kur)

@@ -283,10 +283,10 @@ class DTMRInstHead(nn.Module):
             nn.Sigmoid(),
         )
 
-        self.refine_output = nn.Sequential(
-            nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
-            nn.Sigmoid(),
-        )
+        # self.refine_output = nn.Sequential(
+        #     nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+        #     nn.Sigmoid(),
+        # )
 
         # self.residual = nn.Sequential(
         #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
@@ -378,9 +378,13 @@ class DTMRInstHead(nn.Module):
             mask_code_fused_features = self.mask_fusion(mask_code_features)
             mask_code_prediction = self.mask_pred(mask_code_fused_features)
 
-            if not self.training and self.allow_code_thresholding:
-                with torch.no_grad():
-                    mask_code_prediction = (torch.abs(mask_code_prediction) > self.code_threshold) * mask_code_prediction
+            # if not self.training and self.allow_code_thresholding:
+            #     with torch.no_grad():
+            #         avg_mag = torch.mean(torch.abs(mask_code_prediction), dim=1)
+            #         mask_code_prediction = 1 * torch.sinh((torch.arcsinh(mask_code_prediction) + 0) / 0.9)
+            #         mask_code_prediction = mask_code_prediction / torch.mean(torch.abs(mask_code_prediction), dim=1) * avg_mag
+            #     with torch.no_grad():
+            #         mask_code_prediction = (torch.abs(mask_code_prediction) > self.code_threshold) * mask_code_prediction
 
             mask_reg.append(mask_code_prediction)
 
@@ -403,10 +407,10 @@ class DTMRInstHead(nn.Module):
                 residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1]
                 residual_features = residual_mask + residual_features
                 # residual_features = torch.clamp(residual_features, min=0.001, max=0.999)
-                # iter_output.append(residual_features)
+                iter_output.append(residual_features)
 
-                residual_features_refined = self.refine_output(residual_features)
-                iter_output.append(residual_features_refined)
+                # residual_features_refined = self.refine_output(residual_features)
+                # iter_output.append(residual_features_refined)
 
             # Iterations for refinement
             # if self.training:
