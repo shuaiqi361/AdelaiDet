@@ -434,78 +434,79 @@ class DTInstOutputs(object):
 
         total_mask_loss = 0.
         dtm_pred_, binary_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)  # from sparse coefficients to DTMs/images
-        code_targets, dtm_targets, weight_maps, hd_maps = self.mask_encoding.encoder(mask_targets)
+        # code_targets, dtm_targets, weight_maps, hd_maps = self.mask_encoding.encoder(mask_targets)
+        code_targets = self.mask_encoding.encoder(mask_targets)
         # dtm_pred_ = mask_residual_pred  # + dtm_pred_init
-        if self.loss_on_mask:
-            if 'mask_mse' in self.mask_loss_type:
-                mask_loss = F.mse_loss(
-                    dtm_pred_,
-                    dtm_targets,
-                    reduction='none'
-                )
-                mask_loss = mask_loss.sum(1) * ctrness_targets
-                mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += mask_loss
-            if 'weighted_mask_mse' in self.mask_loss_type:
-                mask_loss = F.mse_loss(
-                    dtm_pred_,
-                    dtm_targets,
-                    reduction='none'
-                )
-                mask_loss = torch.sum(mask_loss * weight_maps, 1) / torch.sum(weight_maps, 1) * ctrness_targets * self.mask_size ** 2
-                mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += mask_loss
-            if 'mask_difference' in self.mask_loss_type:
-                w_ = torch.abs(binary_pred_ * 1. - mask_targets * 1)  # 1's are inconsistent pixels in hd_maps
-                md_loss = torch.sum(w_, 1) * ctrness_targets
-                md_loss = md_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += md_loss
-            if 'hd_one_side_binary' in self.mask_loss_type:  # the first attempt, not really accurate
-                w_ = torch.abs(binary_pred_ * 1. - mask_targets * 1)  # 1's are inconsistent pixels in hd_maps
-                hausdorff_loss = torch.sum(w_ * hd_maps, 1) / (torch.sum(w_, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
-                hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += hausdorff_loss
-            if 'hd_two_side_binary' in self.mask_loss_type:  # the first attempt, not really accurate
-                w_ = torch.abs(binary_pred_ * 1. - mask_targets * 1)  # 1's are inconsistent pixels in hd_maps
-                hausdorff_loss = torch.sum(w_ * (torch.clamp(dtm_pred_ ** 2, -0.1, 1.1) + torch.clamp(dtm_targets ** 2, -0.1, 1)), 1) / (torch.sum(w_, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
-                hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += hausdorff_loss
-            if 'hd_weighted_one_side_dtm' in self.mask_loss_type:
-                dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
-                hausdorff_loss = torch.sum(dtm_diff * weight_maps * hd_maps, 1) / (torch.sum(weight_maps, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
-                hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += hausdorff_loss
-            if 'hd_weighted_two_side_dtm' in self.mask_loss_type:
-                dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
-                hausdorff_loss = torch.sum(dtm_diff * weight_maps * (dtm_pred_ ** 2 + dtm_targets ** 2), 1) / (torch.sum(weight_maps, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
-                hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += hausdorff_loss
-            if 'hd_one_side_dtm' in self.mask_loss_type:
-                dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
-                hausdorff_loss = torch.sum(dtm_diff * hd_maps, 1) * ctrness_targets
-                hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += hausdorff_loss
-            if 'hd_two_side_dtm' in self.mask_loss_type:
-                dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
-                hausdorff_loss = torch.sum(dtm_diff * (torch.clamp(dtm_pred_, -1.1, 1.1) ** 2 + dtm_targets ** 2), 1) * ctrness_targets
-                hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += hausdorff_loss
-            if 'contour_dice' in self.mask_loss_type:
-                pred_contour = (dtm_pred_ + 0.9 < 0.55) * 1. * (0.5 <= dtm_pred_ + 0.9)  # contour pixels with 0.05 tolerance
-                target_contour = (dtm_targets < 0.05) * 1. * (dtm_targets < 0.05)
-                # pred_contour = 0.5 <= dtm_pred_ + 0.9 < 0.55  # contour pixels with 0.05 tolerance
-                # target_contour = 0. <= dtm_targets < 0.05
-                overlap_ = torch.sum(pred_contour * 2. * target_contour, 1)
-                union_ = torch.sum(pred_contour ** 2, 1) + torch.sum(target_contour ** 2, 1)
-                dice_loss = (1. - overlap_ / (union_ + 1e-4)) * ctrness_targets * self.mask_size ** 2
-                dice_loss = dice_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += dice_loss
-            if 'mask_dice' in self.mask_loss_type:
-                overlap_ = torch.sum(binary_pred_ * 2. * mask_targets, 1)
-                union_ = torch.sum(binary_pred_ ** 2, 1) + torch.sum(mask_targets ** 2, 1)
-                dice_loss = (1. - overlap_ / (union_ + 1e-5)) * ctrness_targets * self.mask_size ** 2
-                dice_loss = dice_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
-                total_mask_loss += dice_loss
+        # if self.loss_on_mask:
+        #     if 'mask_mse' in self.mask_loss_type:
+        #         mask_loss = F.mse_loss(
+        #             dtm_pred_,
+        #             dtm_targets,
+        #             reduction='none'
+        #         )
+        #         mask_loss = mask_loss.sum(1) * ctrness_targets
+        #         mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+        #         total_mask_loss += mask_loss
+        #     if 'weighted_mask_mse' in self.mask_loss_type:
+        #         mask_loss = F.mse_loss(
+        #             dtm_pred_,
+        #             dtm_targets,
+        #             reduction='none'
+        #         )
+        #         mask_loss = torch.sum(mask_loss * weight_maps, 1) / torch.sum(weight_maps, 1) * ctrness_targets * self.mask_size ** 2
+        #         mask_loss = mask_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+        #         total_mask_loss += mask_loss
+        #     if 'mask_difference' in self.mask_loss_type:
+        #         w_ = torch.abs(binary_pred_ * 1. - mask_targets * 1)  # 1's are inconsistent pixels in hd_maps
+        #         md_loss = torch.sum(w_, 1) * ctrness_targets
+        #         md_loss = md_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+        #         total_mask_loss += md_loss
+        #     if 'hd_one_side_binary' in self.mask_loss_type:  # the first attempt, not really accurate
+        #         w_ = torch.abs(binary_pred_ * 1. - mask_targets * 1)  # 1's are inconsistent pixels in hd_maps
+        #         hausdorff_loss = torch.sum(w_ * hd_maps, 1) / (torch.sum(w_, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
+        #         hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+        #         total_mask_loss += hausdorff_loss
+        #     if 'hd_two_side_binary' in self.mask_loss_type:  # the first attempt, not really accurate
+        #         w_ = torch.abs(binary_pred_ * 1. - mask_targets * 1)  # 1's are inconsistent pixels in hd_maps
+        #         hausdorff_loss = torch.sum(w_ * (torch.clamp(dtm_pred_ ** 2, -0.1, 1.1) + torch.clamp(dtm_targets ** 2, -0.1, 1)), 1) / (torch.sum(w_, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
+        #         hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+        #         total_mask_loss += hausdorff_loss
+        #     if 'hd_weighted_one_side_dtm' in self.mask_loss_type:
+        #         dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
+        #         hausdorff_loss = torch.sum(dtm_diff * weight_maps * hd_maps, 1) / (torch.sum(weight_maps, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
+        #         hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+        #         total_mask_loss += hausdorff_loss
+        #     if 'hd_weighted_two_side_dtm' in self.mask_loss_type:
+        #         dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
+        #         hausdorff_loss = torch.sum(dtm_diff * weight_maps * (dtm_pred_ ** 2 + dtm_targets ** 2), 1) / (torch.sum(weight_maps, 1) + 1e-4) * ctrness_targets * self.mask_size ** 2
+        #         hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+        #         total_mask_loss += hausdorff_loss
+        #     if 'hd_one_side_dtm' in self.mask_loss_type:
+        #         dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
+        #         hausdorff_loss = torch.sum(dtm_diff * hd_maps, 1) * ctrness_targets
+        #         hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+        #         total_mask_loss += hausdorff_loss
+        #     if 'hd_two_side_dtm' in self.mask_loss_type:
+        #         dtm_diff = (dtm_pred_ - dtm_targets) ** 2  # 1's are inconsistent pixels in hd_maps
+        #         hausdorff_loss = torch.sum(dtm_diff * (torch.clamp(dtm_pred_, -1.1, 1.1) ** 2 + dtm_targets ** 2), 1) * ctrness_targets
+        #         hausdorff_loss = hausdorff_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+        #         total_mask_loss += hausdorff_loss
+        #     if 'contour_dice' in self.mask_loss_type:
+        #         pred_contour = (dtm_pred_ + 0.9 < 0.55) * 1. * (0.5 <= dtm_pred_ + 0.9)  # contour pixels with 0.05 tolerance
+        #         target_contour = (dtm_targets < 0.05) * 1. * (dtm_targets < 0.05)
+        #         # pred_contour = 0.5 <= dtm_pred_ + 0.9 < 0.55  # contour pixels with 0.05 tolerance
+        #         # target_contour = 0. <= dtm_targets < 0.05
+        #         overlap_ = torch.sum(pred_contour * 2. * target_contour, 1)
+        #         union_ = torch.sum(pred_contour ** 2, 1) + torch.sum(target_contour ** 2, 1)
+        #         dice_loss = (1. - overlap_ / (union_ + 1e-4)) * ctrness_targets * self.mask_size ** 2
+        #         dice_loss = dice_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+        #         total_mask_loss += dice_loss
+        #     if 'mask_dice' in self.mask_loss_type:
+        #         overlap_ = torch.sum(binary_pred_ * 2. * mask_targets, 1)
+        #         union_ = torch.sum(binary_pred_ ** 2, 1) + torch.sum(mask_targets ** 2, 1)
+        #         dice_loss = (1. - overlap_ / (union_ + 1e-5)) * ctrness_targets * self.mask_size ** 2
+        #         dice_loss = dice_loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+        #         total_mask_loss += dice_loss
         if self.loss_on_code:
             # m*m mask labels --> n_components encoding labels
             if 'mse' in self.mask_loss_type:
@@ -729,6 +730,9 @@ class DTInstOutputs(object):
             per_box_mask = mask_regression[i]
             per_box_mask = per_box_mask[per_box_loc]
 
+            per_box_code = mask_regression[i]
+            per_box_code = per_box_code[per_box_loc]
+
             # per_box_mask_residual = mask_residual[i]
             # per_box_mask_residual = per_box_mask_residual[per_box_loc]
 
@@ -741,6 +745,7 @@ class DTInstOutputs(object):
                 per_box_regression = per_box_regression[top_k_indices]
                 per_locations = per_locations[top_k_indices]
                 per_box_mask = per_box_mask[top_k_indices]
+                per_box_code = per_box_code[top_k_indices]
                 # per_box_mask_residual = per_box_mask_residual[top_k_indices]
 
             detections = torch.stack([
@@ -756,6 +761,7 @@ class DTInstOutputs(object):
             boxlist.pred_classes = per_class
             boxlist.locations = per_locations
             boxlist.pred_masks = per_box_mask
+            boxlist.pred_codes = per_box_code
             # boxlist.pred_masks_residual = per_box_mask_residual
 
             results.append(boxlist)

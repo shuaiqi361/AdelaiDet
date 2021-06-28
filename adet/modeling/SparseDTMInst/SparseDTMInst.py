@@ -280,12 +280,14 @@ class DTInstHead(nn.Module):
         #     nn.ReLU(),
         #     nn.Conv2d(in_channels, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
         # )
+
         self.residual = nn.Sequential(
             nn.Conv2d(in_channels * 3, in_channels, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
         )
+
         # self.residual = nn.Sequential(
         #     nn.Conv2d(in_channels, in_channels * 2, kernel_size=3, stride=1, padding=1),
         #     nn.ReLU(),

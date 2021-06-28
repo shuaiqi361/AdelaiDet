@@ -132,3 +132,62 @@ def prepare_distance_transform_from_mask_with_weights(masks, mask_size, kernel=3
     return DTMs, weight_maps, HD_maps
 
 
+def prepare_complement_DTM_from_mask(masks, mask_size, kernel=3, dist_type=cv2.DIST_L2):
+    """
+    Given a set of masks as torch tensor, convert to numpy array, find distance transform maps from them,
+    and convert DTMs back to torch tensor, a weight map with 1 - DTM will be returned(emphasizing boundary and thin parts)
+    :param mask_bias: bias set for the pixels outside the contour
+    :param fg_weighting: weighting for foreground pixels on the DTMs
+    :param bg_weighting: weighting for background pixels on the DTMs
+    :param dist_type: used for distance transform
+    :param kernel: kernel size for distance transforms
+    :param masks: input masks for instance segmentation, shape: (N, mask_size, mask_size)
+    :param mask_size: input mask size
+    :return: a set of distance transform maps, and a weight map in torch tensor, with the same shape as input masks
+    """
+    assert mask_size * mask_size == masks.shape[1]
+    device = masks.device
+    masks = masks.view(masks.shape[0], mask_size, mask_size).cpu().numpy()
+    masks = masks.astype(np.uint8)
+    DTMs = []
+    for m in masks:
+        dist_m = cv2.distanceTransform(m, distanceType=dist_type, maskSize=kernel)
+        dist_m = dist_m / np.max(dist_m)
+        dist_map = np.where(dist_m > 0, 1 - dist_m, -1).astype(np.float32)  # DTM in (-1, 0-1)
+        DTMs.append(dist_map.reshape((1, -1)))
+
+    DTMs = np.concatenate(DTMs, axis=0)
+    DTMs = torch.from_numpy(DTMs).to(torch.float32).to(device)
+
+    return DTMs
+
+
+def prepare_reciprocal_DTM_from_mask(masks, mask_size, kernel=3, dist_type=cv2.DIST_L2):
+    """
+    Given a set of masks as torch tensor, convert to numpy array, find distance transform maps from them,
+    and convert DTMs back to torch tensor, a weight map with 1 - DTM will be returned(emphasizing boundary and thin parts)
+    :param mask_bias: bias set for the pixels outside the contour
+    :param fg_weighting: weighting for foreground pixels on the DTMs
+    :param bg_weighting: weighting for background pixels on the DTMs
+    :param dist_type: used for distance transform
+    :param kernel: kernel size for distance transforms
+    :param masks: input masks for instance segmentation, shape: (N, mask_size, mask_size)
+    :param mask_size: input mask size
+    :return: a set of distance transform maps, and a weight map in torch tensor, with the same shape as input masks
+    """
+    assert mask_size * mask_size == masks.shape[1]
+    device = masks.device
+    masks = masks.view(masks.shape[0], mask_size, mask_size).cpu().numpy()
+    masks = masks.astype(np.uint8)
+    DTMs = []
+    for m in masks:
+        dist_m = cv2.distanceTransform(m, distanceType=dist_type, maskSize=kernel)
+        dist_m = np.where(dist_m > 1e-5, np.clip(1. / (dist_m + 1e-5), 0, 1), -1.)
+
+        dist_map = np.where(dist_m > 0, dist_m, -1).astype(np.float32)  # DTM in (-1, 0-1)
+        DTMs.append(dist_map.reshape((1, -1)))
+
+    DTMs = np.concatenate(DTMs, axis=0)
+    DTMs = torch.from_numpy(DTMs).to(torch.float32).to(device)
+
+    return DTMs
