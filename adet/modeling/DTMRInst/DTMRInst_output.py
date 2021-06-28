@@ -468,6 +468,7 @@ class DTMRInstOutputs(object):
                     mask_loss += _loss
                 total_mask_loss += mask_loss
             if 'mask_dice' in self.mask_loss_type:
+                # This is to use all the output to calculate the mask loss
                 dice_loss = 0
                 for mask_pred_ in mask_pred_decoded_list:
                     overlap_ = torch.sum(mask_pred_ * 2. * mask_targets, 1)
@@ -477,11 +478,11 @@ class DTMRInstOutputs(object):
                     dice_loss += _loss
 
                 # This is to just use the last output to calculate the mask loss
-                # mask_pred_ = mask_pred_decoded_list[-1]
-                # overlap_ = torch.sum(mask_pred_ * 2. * mask_targets, 1)
-                # union_ = torch.sum(mask_pred_ ** 2, 1) + torch.sum(mask_targets ** 2, 1)
-                # _loss = (1. - overlap_ / (union_ + 1e-5)) * ctrness_targets * self.mask_size ** 2
-                # dice_loss = _loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                mask_pred_ = mask_pred_decoded_list[-1]
+                overlap_ = torch.sum(mask_pred_ * 2. * mask_targets, 1)
+                union_ = torch.sum(mask_pred_ ** 2, 1) + torch.sum(mask_targets ** 2, 1)
+                _loss = (1. - overlap_ / (union_ + 1e-5)) * ctrness_targets * self.mask_size ** 2
+                dice_loss = _loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
 
                 total_mask_loss += dice_loss
 
