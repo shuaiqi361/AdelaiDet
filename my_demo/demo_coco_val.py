@@ -166,26 +166,26 @@ if __name__ == "__main__":
         # plot histogram of codes
         # sinh[𝛿sinh−1(𝑥)−𝜖]
         # inverse: sinh[𝛿−1(sinh−1(𝑥)+𝜖)]
-        fig = plt.figure()
-        plt.subplot(121)
-        arr = plt.hist(codes_.reshape((-1,)).tolist(), bins=50, color='g', density=True)
-        plt.rcParams.update({'font.size': 8})
-        plt.xlabel('Sparse Codes')
-        plt.ylabel('Counts')
-        plt.title('Histogram of sparse codes')
-
-        plt.subplot(122)
-        transformed_codes = codes_.reshape((-1,))
-        avg_mag = np.mean(np.abs(transformed_codes))
-        transformed_codes = 1 * np.sinh((np.arcsinh(transformed_codes) + 0) / 0.75)
-        transformed_codes = transformed_codes / np.mean(np.abs(transformed_codes)) * avg_mag
-        arr = plt.hist(transformed_codes.tolist(), bins=50, color='g', density=True)
-        plt.rcParams.update({'font.size': 8})
-        plt.xlabel('Sparse Codes')
-        plt.ylabel('Counts')
-        plt.title('Histogram of transformed sparse codes')
-        plt.show()
-        exit()
+        # fig = plt.figure()
+        # plt.subplot(121)
+        # arr = plt.hist(codes_.reshape((-1,)).tolist(), bins=50, color='g', density=True)
+        # plt.rcParams.update({'font.size': 8})
+        # plt.xlabel('Sparse Codes')
+        # plt.ylabel('Counts')
+        # plt.title('Histogram of sparse codes')
+        #
+        # plt.subplot(122)
+        # transformed_codes = codes_.reshape((-1,))
+        # avg_mag = np.mean(np.abs(transformed_codes))
+        # transformed_codes = 1 * np.sinh((np.arcsinh(transformed_codes) + 0) / 0.75)
+        # transformed_codes = transformed_codes / np.mean(np.abs(transformed_codes)) * avg_mag
+        # arr = plt.hist(transformed_codes.tolist(), bins=50, color='g', density=True)
+        # plt.rcParams.update({'font.size': 8})
+        # plt.xlabel('Sparse Codes')
+        # plt.ylabel('Counts')
+        # plt.title('Histogram of transformed sparse codes')
+        # plt.show()
+        # exit()
 
         # show ground truth
         ann_ids = coco.getAnnIds(imgIds=img_id)

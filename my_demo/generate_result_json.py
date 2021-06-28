@@ -95,7 +95,7 @@ if __name__ == "__main__":
     predictor = DefaultPredictor(cfg)
 
     # Loading COCO validation images
-    args.data_type = 'test2017'
+    args.data_type = 'val2017'
     if 'test' not in args.data_type:
         annotation_file = '{}/annotations/instances_{}.json'.format(args.coco_path, args.data_type)
         dataset_name = 'coco_2017_train'
@@ -158,6 +158,8 @@ if __name__ == "__main__":
         json.dump(seg_results, f_det)
 
     if 'test' not in args.data_type:
+        if not os.path.exists('{}/results/plot'.format(args.result_dir)):
+            os.mkdir('{}/results/plot'.format(args.result_dir))
         print('---------------------------------------------------------------------------------')
         print('Running COCO segmentation val17 evaluation ...')
         coco_pred = coco.loadRes('{}/results/{}_seg_results.json'.format(args.result_dir, args.data_type))
@@ -165,3 +167,5 @@ if __name__ == "__main__":
         coco_eval.evaluate()
         coco_eval.accumulate()
         coco_eval.summarize()
+        coco_eval.analyze(save_to_dir='{}/results/plot'.format(args.result_dir))
+
