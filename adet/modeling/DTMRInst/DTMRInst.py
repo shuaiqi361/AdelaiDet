@@ -286,7 +286,7 @@ class DTMRInstHead(nn.Module):
         # self.refine_output = nn.Sequential(
         #     nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
         #     nn.Sigmoid(),
-        # )
+        #  )
 
         # self.residual = nn.Sequential(
         #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
