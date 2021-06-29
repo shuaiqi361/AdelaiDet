@@ -59,7 +59,8 @@ class DistanceTransformEncoding(nn.Module):
         #                                                                               fg_weighting=self.fg_weighting,
         #                                                                               bg_weighting=self.bg_weighting,
         #                                                                               mask_bias=self.mask_bias)
-        X_t = prepare_complement_DTM_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        # X_t = prepare_complement_DTM_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        X_t = prepare_reciprocal_DTM_from_mask(X, self.mask_size, dist_type=self.dist_type)
 
         if self.if_whiten:
             Centered_X = (X_t - self.shape_mean) / self.shape_std
@@ -95,10 +96,10 @@ class DistanceTransformEncoding(nn.Module):
 
         if is_train:
             # X_transformed_img = X_transformed + 0.9 >= 0.5  # the predicted binary mask for DTMs
-            # X_transformed_img = X_transformed + 0.6 >= 0.5  # the predicted binary mask for reciprocal DTMs
-            X_transformed_img = X_transformed + 0.55 >= 0.5  # the predicted binary mask for complement DTMs
+            X_transformed_img = X_transformed + 0.6 >= 0.5  # the predicted binary mask for reciprocal DTMs
+            # X_transformed_img = X_transformed + 0.55 >= 0.5  # the predicted binary mask for complement DTMs
             return X_transformed, X_transformed_img
         else:
-            X_transformed = torch.clamp(X_transformed + 0.55, min=0.01, max=0.99)  # for normal DTM
+            X_transformed = torch.clamp(X_transformed + 0.6, min=0.01, max=0.99)  # for normal DTM
 
         return X_transformed
