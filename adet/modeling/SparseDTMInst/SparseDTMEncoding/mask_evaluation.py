@@ -27,12 +27,12 @@ def parse_args():
     #                     type=str)
     parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling'
                                                 '/SparseDTMInst/'
-                                                'dictionary/Centered_reciprocal_DTM_basis_m28_n128_a0.30.npz',
+                                                'dictionary/Centered_reciprocal_DTM_basis_m56_n128_a0.40.npz',
                         type=str)
     # mask encoding params.
-    parser.add_argument('--mask_size', default=28, type=int)
+    parser.add_argument('--mask_size', default=56, type=int)
     parser.add_argument('--n_codes', default=128, type=int)
-    parser.add_argument('--sparse_alpha', default=0.30, type=float)
+    parser.add_argument('--sparse_alpha', default=0.40, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     parser.add_argument('--top-code', default=60, type=int)
     parser.add_argument('--if-whiten', default=False, type=bool)
@@ -88,11 +88,11 @@ if __name__ == "__main__":
         # --> encode --> decode.
         if args.if_whiten:
             centered_dtms = (dtms - shape_mean) / shape_std
-            dtms_codes = fast_ista(centered_dtms, learned_dict, lmbda=sparse_alpha, max_iter=80)
+            dtms_codes = fast_ista(centered_dtms, learned_dict, lmbda=sparse_alpha, max_iter=100)
             dtms_rc = torch.matmul(dtms_codes, learned_dict) * shape_std + shape_mean
         else:
             centered_dtms = dtms - shape_mean
-            dtms_codes = fast_ista(centered_dtms, learned_dict, lmbda=sparse_alpha, max_iter=80)
+            dtms_codes = fast_ista(centered_dtms, learned_dict, lmbda=sparse_alpha, max_iter=100)
             dtms_rc = torch.matmul(dtms_codes, learned_dict) + shape_mean
 
         dtms_rc = dtms_rc.numpy()
@@ -101,7 +101,7 @@ if __name__ == "__main__":
         kurtosis_counts.append(dtms_codes.numpy())
 
         # eva.
-        dtms_rc = np.where(dtms_rc + 0.55 >= 0.5, 1, 0)
+        dtms_rc = np.where(dtms_rc + 0.65 >= 0.5, 1, 0)
         IoUevaluate.add_batch(dtms_rc, masks.numpy())
 
     _, _, _, mean_iu, _ = IoUevaluate.evaluate()

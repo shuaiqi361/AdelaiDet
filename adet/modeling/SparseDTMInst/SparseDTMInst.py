@@ -283,8 +283,10 @@ class DTInstHead(nn.Module):
 
         self.residual = nn.Sequential(
             nn.Conv2d(in_channels * 3, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.GroupNorm(32, in_channels),
             nn.ReLU(),
             nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.GroupNorm(32, in_channels),
             nn.ReLU(),
         )
 
