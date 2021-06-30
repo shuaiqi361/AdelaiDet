@@ -569,7 +569,7 @@ class DTInstOutputs(object):
             "loss_DTInst_cls": class_loss,
             "loss_DTInst_loc": reg_loss,
             "loss_DTInst_ctr": ctrness_loss,
-            "loss_DTInst_mask": total_mask_loss * 0.4
+            "loss_DTInst_mask": total_mask_loss * 0.5
         }
         return losses, {}
 
