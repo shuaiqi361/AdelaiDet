@@ -98,7 +98,7 @@ class DistanceTransformEncoding(nn.Module):
             # X_transformed_img = X_transformed + 0.9 >= 0.5  # the predicted binary mask for DTMs
             # X_transformed_img = X_transformed + 0.6 >= 0.5  # the predicted binary mask for reciprocal DTMs
             # X_transformed_img = X_transformed + 0.55 >= 0.5  # the predicted binary mask for complement DTMs
-            X_transformed_img = X_transformed + 0.66 >= 0.5  # the predicted binary mask for reciprocal DTMs, size5 6
+            X_transformed_img = X_transformed + 0.65 >= 0.5  # the predicted binary mask for reciprocal DTMs, size5 6
             return X_transformed, X_transformed_img
         else:
             X_transformed = torch.clamp(X_transformed + 0.65, min=0.01, max=0.99)  # for normal DTM
