@@ -182,8 +182,8 @@ def prepare_reciprocal_DTM_from_mask(masks, mask_size, kernel=3, dist_type=cv2.D
     DTMs = []
     for m in masks:
         dist_m = cv2.distanceTransform(m, distanceType=dist_type, maskSize=kernel)
-        dist_m = np.where(dist_m > 1e-5, np.clip(1. / (dist_m + 1e-5), 0, 1), -1.).astype(np.float32)
-        DTMs.append(dist_map.reshape((1, -1)))
+        dist_m = np.where(dist_m > 1e-5, np.clip(1. / (dist_m + 1e-5), 1e-5, 1), -1.).astype(np.float32)
+        DTMs.append(dist_m.reshape((1, -1)))
 
     DTMs = np.concatenate(DTMs, axis=0)
     DTMs = torch.from_numpy(DTMs).to(torch.float32).to(device)
