@@ -440,8 +440,7 @@ class DTMRInstOutputs(object):
         total_mask_loss = 0.
         # _, binary_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)  # from sparse coefficients to DTMs/images
         # code_targets, dtm_targets, weight_maps, hd_maps = self.mask_encoding.encoder(mask_targets)
-        # code_targets, dtm_targets, weight_maps, _ = self.mask_encoding.encoder(mask_targets)
-        code_targets, dtm_targets = self.mask_encoding.encoder(mask_targets)
+        code_targets, dtm_targets, weight_maps, _ = self.mask_encoding.encoder(mask_targets)
 
         if self.loss_on_mask:
             if 'mask_mse' in self.mask_loss_type:
@@ -497,18 +496,29 @@ class DTMRInstOutputs(object):
                 )
                 mask_loss = mask_loss.sum(1) * ctrness_targets
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                if self.mask_sparse_weight > 0.:
+                    if self.sparsity_loss_type == 'L1':
+                        sparsity_loss = torch.sum(torch.abs(mask_pred), 1) * ctrness_targets
+                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + \
+                                    sparsity_loss * self.mask_sparse_weight
+                    elif self.sparsity_loss_type == 'weighted_L1':
+                        w_ = (torch.abs(code_targets) < 1e-3) * 1.  # inactive codes, put L1 regularization on them
+                        sparsity_loss = torch.sum(torch.abs(mask_pred) * w_, 1) * ctrness_targets
+                        sparsity_loss = sparsity_loss.sum() / torch.sum(w_) / max(ctrness_norm * self.num_codes, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + sparsity_loss * self.mask_sparse_weight
+                    elif self.sparsity_loss_type == 'weighted_L2':
+                        w_ = (torch.abs(code_targets) < 1e-3) * 1.  # inactive codes, put L2 regularization on them
+                        sparsity_loss = torch.sum(mask_pred ** 2. * w_, 1) / torch.sum(w_, 1) \
+                                        * ctrness_targets * self.num_codes
+                        sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                        mask_loss = mask_loss * self.mask_loss_weight + \
+                                    sparsity_loss * self.mask_sparse_weight
+                    else:
+                        raise NotImplementedError
                 total_mask_loss += mask_loss
             if 'smooth' in self.mask_loss_type:
                 mask_loss = F.smooth_l1_loss(
-                    mask_pred,
-                    code_targets,
-                    reduction='none'
-                )
-                mask_loss = mask_loss.sum(1) * ctrness_targets
-                mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
-                total_mask_loss += mask_loss
-            if 'L1' in self.mask_loss_type:
-                mask_loss = F.l1_loss(
                     mask_pred,
                     code_targets,
                     reduction='none'
@@ -532,26 +542,6 @@ class DTMRInstOutputs(object):
                 mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                 total_mask_loss += mask_loss
-            if self.mask_sparse_weight > 0.:
-                if self.sparsity_loss_type == 'L1':
-                    sparsity_loss = torch.sum(torch.abs(mask_pred), 1) * ctrness_targets
-                    sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
-                    mask_loss = mask_loss * self.mask_loss_weight + \
-                                sparsity_loss * self.mask_sparse_weight
-                elif self.sparsity_loss_type == 'weighted_L1':
-                    w_ = (torch.abs(code_targets) < 1e-3) * 1.  # inactive codes, put L1 regularization on them
-                    sparsity_loss = torch.sum(torch.abs(mask_pred) * w_, 1) * ctrness_targets
-                    sparsity_loss = sparsity_loss.sum() / torch.sum(w_) / max(ctrness_norm * self.num_codes, 1.0)
-                    mask_loss = mask_loss * self.mask_loss_weight + sparsity_loss * self.mask_sparse_weight
-                elif self.sparsity_loss_type == 'weighted_L2':
-                    w_ = (torch.abs(code_targets) < 1e-3) * 1.  # inactive codes, put L2 regularization on them
-                    sparsity_loss = torch.sum(mask_pred ** 2. * w_, 1) / torch.sum(w_, 1) \
-                                    * ctrness_targets * self.num_codes
-                    sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
-                    total_mask_loss = total_mask_loss * self.mask_loss_weight + \
-                                sparsity_loss * self.mask_sparse_weight
-                else:
-                    raise NotImplementedError
 
         losses = {
             "loss_DTMRInst_cls": class_loss,

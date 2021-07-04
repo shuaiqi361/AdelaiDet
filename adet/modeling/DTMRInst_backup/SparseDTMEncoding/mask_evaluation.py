@@ -11,8 +11,7 @@ from MaskLoader import MaskLoader
 from utils import (
     IOUMetric,
     fast_ista,
-    prepare_distance_transform_from_mask_with_weights,
-    prepare_distance_transform_from_mask
+    prepare_distance_transform_from_mask_with_weights
 )
 
 
@@ -95,7 +94,7 @@ if __name__ == "__main__":
 
         dtms_rc = dtms_rc.numpy()
         # evaluate sparsity
-        sparsity_counts.append(np.sum(np.abs(dtms_codes.numpy()) > 1e-3))
+        sparsity_counts.append(np.sum(np.abs(dtms_codes.numpy()) > 1e-4))
         kurtosis_counts.append(dtms_codes.numpy())
 
         # eva.

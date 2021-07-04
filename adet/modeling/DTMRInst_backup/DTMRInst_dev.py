@@ -188,8 +188,6 @@ class DTMRInstHead(nn.Module):
         self.mask_size = cfg.MODEL.DTMRInst.MASK_SIZE
         self.if_whiten = cfg.MODEL.DTMRInst.WHITEN
         self.mask_refinement_iter = cfg.MODEL.DTMRInst.MASK_REFINEMENT_ITER
-        self.allow_code_thresholding = cfg.MODEL.DTMRInst.ALLOW_CODE_THRESHOLDING
-        self.code_threshold = cfg.MODEL.DTMRInst.CODE_THRESHOLDING_THRESHOLD
 
         head_configs = {"cls": (cfg.MODEL.DTMRInst.NUM_CLS_CONVS,
                                 cfg.MODEL.DTMRInst.USE_DEFORMABLE),
@@ -274,6 +272,26 @@ class DTMRInstHead(nn.Module):
             stride=1, padding=1
         )
 
+        self.ref_conv_1 = nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0)
+        self.ref_conv_2 = nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1)
+        self.ref_conv_3 = nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1)
+        # self.residual = []
+
+        for j in range(self.mask_refinement_iter):
+            refine_module = nn.Sequential(
+                self.ref_conv_1,
+                nn.BatchNorm2d(in_channels * 2),
+                nn.Sigmoid(),
+                self.ref_conv_2,
+                nn.BatchNorm2d(in_channels * 2),
+                nn.Sigmoid(),
+                self.ref_conv_3,
+                nn.BatchNorm2d(self.mask_size ** 2),
+                nn.Sigmoid(),
+            )
+            self.add_module('refine_module_{}'.format(j + 1), refine_module)
+            # self.residual.append()
+
         # self.residual = nn.Sequential(
         #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
         #     nn.ReLU(),
@@ -283,46 +301,10 @@ class DTMRInstHead(nn.Module):
         #     nn.Sigmoid(),
         # )
 
-        # self.refine_output = nn.Sequential(
-        #     nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
-        #     nn.Sigmoid(),
-        #  )
-
-        # self.residual = nn.Sequential(
-        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
-        #     nn.Sigmoid(),
-        # )
-
-        self.residual = nn.Sequential(
-            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
-            nn.ReLU(),
-            nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
-            nn.Sigmoid(),
-        )
-
-        # self.residual = nn.Sequential(
-        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1,
-        #               groups=self.mask_size),
-        #     nn.ReLU(),
-        #     nn.Conv2d(self.mask_size ** 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1,
-        #               groups=self.mask_size),
-        #     nn.Sigmoid(),
-        # )
-
         self.mask_fusion = nn.Sequential(
             nn.Conv2d(in_channels * 3, in_channels, kernel_size=3, stride=1, padding=1),
-            nn.GroupNorm(32, in_channels),
             nn.ReLU(),
             nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
-            nn.GroupNorm(32, in_channels),
             nn.ReLU()
         )
 
@@ -343,17 +325,39 @@ class DTMRInstHead(nn.Module):
             self.cls_tower, self.bbox_tower,
             self.share_tower, self.cls_logits,
             self.bbox_pred, self.ctrness,
-            self.mask_tower, self.mask_pred, self.residual, self.mask_fusion
+            self.mask_tower, self.mask_pred, self.mask_fusion  # , self.residual
         ]:
             for l in modules.modules():
                 if isinstance(l, nn.Conv2d):
                     torch.nn.init.normal_(l.weight, std=0.01)
                     torch.nn.init.constant_(l.bias, 0)
 
+        for j in range(self.mask_refinement_iter):
+            mod = self.get_func(j + 1)
+            for l in mod.modules():
+                if isinstance(l, nn.Conv2d):
+                    torch.nn.init.normal_(l.weight, std=0.01)
+                    torch.nn.init.constant_(l.bias, 0)
+
+
         # initialize the bias for focal loss
         prior_prob = cfg.MODEL.DTMRInst.PRIOR_PROB
         bias_value = -math.log((1 - prior_prob) / prior_prob)
         torch.nn.init.constant_(self.cls_logits.bias, bias_value)
+
+    def get_func(self, i):
+        if i == 1:
+            return self.refine_module_1
+        elif i == 2:
+            return self.refine_module_2
+        elif i == 3:
+            return self.refine_module_3
+        elif i == 4:
+            return self.refine_module_4
+        elif i == 5:
+            return self.refine_module_5
+        else:
+            raise NotImplementedError
 
     def forward(self, x, mask_encoding):
         logits = []
@@ -379,15 +383,6 @@ class DTMRInstHead(nn.Module):
             mask_code_features = torch.cat([mask_tower, cls_tower, bbox_tower], dim=1)
             mask_code_fused_features = self.mask_fusion(mask_code_features)
             mask_code_prediction = self.mask_pred(mask_code_fused_features)
-
-            # if not self.training and self.allow_code_thresholding:
-            #     with torch.no_grad():
-            #         avg_mag = torch.mean(torch.abs(mask_code_prediction), dim=1)
-            #         mask_code_prediction = 1 * torch.sinh((torch.arcsinh(mask_code_prediction) + 0) / 0.9)
-            #         mask_code_prediction = mask_code_prediction / torch.mean(torch.abs(mask_code_prediction), dim=1) * avg_mag
-            #     with torch.no_grad():
-            #         mask_code_prediction = (torch.abs(mask_code_prediction) > self.code_threshold) * mask_code_prediction
-
             mask_reg.append(mask_code_prediction)
 
             with torch.no_grad():
@@ -399,37 +394,15 @@ class DTMRInstHead(nn.Module):
                     init_mask = torch.matmul(mask_code_prediction.permute(0, 2, 3, 1).contiguous(),
                                              mask_encoding.dictionary) + mask_encoding.shape_mean.view(1, 1, 1, -1)
 
-            # residual_features = (init_mask.permute(0, 3, 1, 2).contiguous() + 1.) / 2.  # initialized as the decoded masks to be (-1, 1)
-            # residual_features = init_mask.permute(0, 3, 1, 2).contiguous() + 0.9  # initialized as the decoded masks to be (-1, 1)
-            residual_features = torch.clamp(init_mask.permute(0, 3, 1, 2).contiguous() + 0.9, min=1e-5, max=1 - 1e-5)  # initialized as the decoded masks to be (-1, 1)
+            residual_features = torch.clamp(init_mask.permute(0, 3, 1, 2).contiguous() + 0.9, min=0.001, max=0.999) # initialized as the decoded masks to be (-1, 1)
             iter_output = []
 
-            for _ in range(self.mask_refinement_iter):
+            for j in range(self.mask_refinement_iter):
                 fused_features = torch.cat([bbox_tower, mask_tower, residual_features], dim=1)
-                residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1]
+                mod = self.get_func(j + 1)
+                residual_mask = 2. * mod(fused_features) - 1  # range in [-1, 1]
                 residual_features = residual_mask + residual_features
-                residual_features = torch.clamp(residual_features, min=0.001, max=0.999)
                 iter_output.append(residual_features)
-
-                # residual_features_refined = self.refine_output(residual_features)
-                # iter_output.append(residual_features_refined)
-
-            # Iterations for refinement
-            # if self.training:
-            #     for _ in range(1):
-            #         fused_features = torch.cat([bbox_tower, mask_tower, residual_features], dim=1)
-            #         residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1]
-            #         residual_features = residual_mask + residual_features
-            #         # residual_features = torch.clamp(residual_features, min=0.001, max=0.999)
-            #         iter_output.append(residual_features)
-            # else:
-            #     with torch.no_grad():
-            #         for _ in range(self.mask_refinement_iter):
-            #             fused_features = torch.cat([bbox_tower, mask_tower, residual_features], dim=1)
-            #             residual_mask = 2. * self.residual(fused_features) - 1  # range in [-1, 1]
-            #             residual_features = residual_mask + residual_features
-            #             # residual_features = torch.clamp(residual_features, min=0.001, max=0.999)
-            #             iter_output.append(residual_features)
 
             if self.mask_refinement_iter < 1:
                 mask_pred.append([residual_features])

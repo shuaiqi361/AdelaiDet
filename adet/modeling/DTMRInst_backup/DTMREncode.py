@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import cv2
 from .SparseDTMEncoding import fast_ista, \
-    prepare_distance_transform_from_mask_with_weights, tensor_to_dtm, prepare_distance_transform_from_mask
+    prepare_distance_transform_from_mask_with_weights, tensor_to_dtm
 
 
 @torch.no_grad()
@@ -53,12 +53,11 @@ class DistanceTransformEncoding(nn.Module):
         assert X.shape[1] == self.mask_size ** 2, print("The original mask_size of input"
                                                         " should be equal to the supposed size.")
 
-        # X_t, weight_maps, hd_maps = prepare_distance_transform_from_mask_with_weights(X, self.mask_size,
-        #                                                                               dist_type=self.dist_type,
-        #                                                                               fg_weighting=self.fg_weighting,
-        #                                                                               bg_weighting=self.bg_weighting,
-        #                                                                               mask_bias=self.mask_bias)
-        X_t = prepare_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        X_t, weight_maps, hd_maps = prepare_distance_transform_from_mask_with_weights(X, self.mask_size,
+                                                                                      dist_type=self.dist_type,
+                                                                                      fg_weighting=self.fg_weighting,
+                                                                                      bg_weighting=self.bg_weighting,
+                                                                                      mask_bias=self.mask_bias)
 
         if self.if_whiten:
             Centered_X = (X_t - self.shape_mean) / self.shape_std
@@ -67,7 +66,7 @@ class DistanceTransformEncoding(nn.Module):
 
         X_transformed = fast_ista(Centered_X, self.dictionary, lmbda=self.sparse_alpha, max_iter=self.max_iter)
 
-        return X_transformed, Centered_X
+        return X_transformed, Centered_X, weight_maps, hd_maps
 
     def decoder(self, X, is_train=False):
         """
