@@ -401,7 +401,7 @@ class DTMRInstHead(nn.Module):
 
             # residual_features = (init_mask.permute(0, 3, 1, 2).contiguous() + 1.) / 2.  # initialized as the decoded masks to be (-1, 1)
             # residual_features = init_mask.permute(0, 3, 1, 2).contiguous() + 0.9  # initialized as the decoded masks to be (-1, 1)
-            residual_features = torch.clamp(init_mask.permute(0, 3, 1, 2).contiguous() + 0.9, min=1e-5, max=1 - 1e-5)  # initialized as the decoded masks to be (-1, 1)
+            residual_features = torch.clamp(init_mask.permute(0, 3, 1, 2).contiguous() + 0.9, min=0.001, max=0.999)  # initialized as the decoded masks to be (-1, 1)
             iter_output = []
 
             for _ in range(self.mask_refinement_iter):
