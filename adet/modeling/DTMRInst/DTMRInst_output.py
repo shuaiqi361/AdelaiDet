@@ -456,6 +456,30 @@ class DTMRInstOutputs(object):
                     _loss = _loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
                     mask_loss += _loss
                 total_mask_loss += mask_loss
+            if 'mask_l1' in self.mask_loss_type:
+                mask_loss = 0
+                for mask_pred_ in mask_pred_decoded_list:
+                    _loss = F.l1_loss(
+                        mask_pred_,
+                        mask_targets,
+                        reduction='none'
+                    )
+                    _loss = _loss.sum(1) * ctrness_targets
+                    _loss = _loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                    mask_loss += _loss
+                total_mask_loss += mask_loss
+            if 'mask_bce' in self.mask_loss_type:
+                mask_loss = 0
+                for mask_pred_ in mask_pred_decoded_list:
+                    _loss = F.binary_cross_entropy(
+                        mask_pred_,
+                        mask_targets,
+                        reduction='none'
+                    )
+                    _loss = _loss.sum(1) * ctrness_targets
+                    _loss = _loss.sum() / max(ctrness_norm * self.mask_size ** 2, 1.0)
+                    mask_loss += _loss
+                total_mask_loss += mask_loss
             if 'weighted_mask_mse' in self.mask_loss_type:
                 mask_loss = 0
                 for mask_pred_ in mask_pred_decoded_list:
