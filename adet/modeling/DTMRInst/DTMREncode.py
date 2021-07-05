@@ -27,6 +27,7 @@ class DistanceTransformEncoding(nn.Module):
         self.shape_mean = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
         self.shape_std = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
         self.if_whiten = cfg.MODEL.DTMRInst.WHITEN
+        self.offset = cfg.MODEL.DTMRInst.MASK_LEVEL_SET_OFFSET
 
         if cfg.MODEL.DTMRInst.DIST_TYPE == 'L2':
             self.dist_type = cv2.DIST_L2
@@ -92,9 +93,9 @@ class DistanceTransformEncoding(nn.Module):
             X_transformed = torch.matmul(X, self.dictionary) + self.shape_mean
 
         if is_train:
-            X_transformed_img = X_transformed + 0.9 >= 0.5  # the predicted binary mask for DTMs
+            X_transformed_img = X_transformed + self.offset >= 0.5  # the predicted binary mask for DTMs
             return X_transformed, X_transformed_img
         else:
-            X_transformed = torch.clamp(X_transformed + 0.9, min=0.01, max=0.99)  # for normal DTM
+            X_transformed = torch.clamp(X_transformed + self.offset, min=0.01, max=0.99)  # for normal DTM
 
         return X_transformed

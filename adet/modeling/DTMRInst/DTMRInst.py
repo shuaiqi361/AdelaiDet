@@ -190,6 +190,7 @@ class DTMRInstHead(nn.Module):
         self.mask_refinement_iter = cfg.MODEL.DTMRInst.MASK_REFINEMENT_ITER
         self.allow_code_thresholding = cfg.MODEL.DTMRInst.ALLOW_CODE_THRESHOLDING
         self.code_threshold = cfg.MODEL.DTMRInst.CODE_THRESHOLDING_THRESHOLD
+        self.offset = cfg.MODEL.DTMRInst.MASK_LEVEL_SET_OFFSET
 
         head_configs = {"cls": (cfg.MODEL.DTMRInst.NUM_CLS_CONVS,
                                 cfg.MODEL.DTMRInst.USE_DEFORMABLE),
@@ -401,7 +402,7 @@ class DTMRInstHead(nn.Module):
 
             # residual_features = (init_mask.permute(0, 3, 1, 2).contiguous() + 1.) / 2.  # initialized as the decoded masks to be (-1, 1)
             # residual_features = init_mask.permute(0, 3, 1, 2).contiguous() + 0.9  # initialized as the decoded masks to be (-1, 1)
-            residual_features = torch.clamp(init_mask.permute(0, 3, 1, 2).contiguous() + 0.9, min=0.001, max=0.999)  # initialized as the decoded masks to be (-1, 1)
+            residual_features = torch.clamp(init_mask.permute(0, 3, 1, 2).contiguous() + self.offset, min=0.001, max=0.999)  # initialized as the decoded masks to be (-1, 1)
             iter_output = []
 
             for _ in range(self.mask_refinement_iter):
