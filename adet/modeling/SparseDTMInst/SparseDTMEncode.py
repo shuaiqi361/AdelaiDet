@@ -72,7 +72,7 @@ class DistanceTransformEncoding(nn.Module):
 
         X_transformed = fast_ista(Centered_X, self.dictionary, lmbda=self.sparse_alpha, max_iter=self.max_iter)
         X_m1 = torch.mean(X_transformed, dim=1, keepdim=True)
-        X_m2 = torch.var(X_transformed, dim=1, keepdim=True)
+        X_m2 = torch.var(X_transformed, dim=1, keepdim=True) + 1e-5
         X_central = X_transformed - X_m1
         X_m4 = torch.mean((X_central ** 2.) * (X_central ** 2.), dim=1, keepdim=True)
         X_kur = X_m4 / (X_m2 ** 2.) - 3.
