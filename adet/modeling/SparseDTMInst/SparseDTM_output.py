@@ -574,7 +574,7 @@ class DTInstOutputs(object):
                 mask_pred_central = mask_pred - mask_pred_m1
                 mask_pred_m4 = torch.mean(mask_pred_central ** 2. * mask_pred_central ** 2, dim=1, keepdim=True)
                 if 'kurtosis' in self.mask_loss_type:
-                    mask_pred_kur = mask_pred_m4 / (mask_pred_m2 ** 2.) - 3.
+                    mask_pred_kur = torch.clip(mask_pred_m4 / (mask_pred_m2 ** 2.) - 3., min=-1000, max=1000)
                     mask_loss = F.l1_loss(
                         mask_pred_kur,
                         code_targets_kur,
@@ -584,7 +584,7 @@ class DTInstOutputs(object):
                     mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                     total_mask_loss += mask_loss * self.code_kur_weight
                 if 'variance' in self.mask_loss_type:
-                    mask_pred_m2 = torch.mean(mask_pred_central ** 2., dim=1, keepdim=True) + 1e-4
+                    mask_pred_m2 = torch.clip(torch.mean(mask_pred_central ** 2., dim=1, keepdim=True) + 1e-4, min=-1000, max=1000)
                     mask_loss = F.l1_loss(
                         mask_pred_m2,
                         code_targets_var,
