@@ -127,6 +127,8 @@ class DTInstOutputs(object):
         self.mask_sparse_weight = cfg.MODEL.DTInst.MASK_SPARSE_WEIGHT
         self.mask_loss_weight = cfg.MODEL.DTInst.MASK_LOSS_WEIGHT
         self.sparsity_loss_type = cfg.MODEL.DTInst.SPARSITY_LOSS_TYPE
+        self.code_kur_weight = cfg.MODEL.DTInst.CODE_KUR_WEIGHT
+        self.code_var_weight = cfg.MODEL.DTInst.CODE_VAR_WEIGHT
 
         # Matcher to assign box proposals to gt boxes
         self.proposal_matcher = Matcher(
@@ -433,9 +435,11 @@ class DTInstOutputs(object):
         ) / num_pos_avg
 
         total_mask_loss = 0.
+        code_targets, code_targets_var, code_targets_kur = self.mask_encoding.encoder(mask_targets)
         dtm_pred_, binary_pred_ = self.mask_encoding.decoder(mask_pred, is_train=True)  # from sparse coefficients to DTMs/images
         # code_targets, dtm_targets, weight_maps, hd_maps = self.mask_encoding.encoder(mask_targets)
-        code_targets = self.mask_encoding.encoder(mask_targets)
+        # code_targets = self.mask_encoding.encoder(mask_targets)
+
         # dtm_pred_ = mask_residual_pred  # + dtm_pred_init
         # if self.loss_on_mask:
         #     if 'mask_mse' in self.mask_loss_type:
@@ -564,12 +568,33 @@ class DTInstOutputs(object):
                 mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
                 mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
                 total_mask_loss += mask_loss
-
+            if 'kurtosis' in self.mask_loss_type or 'variance' in self.mask_loss_type:
+                mask_pred_m1 = torch.mean(mask_pred, dim=1, keepdim=True)
+                mask_pred_m2 = torch.var(mask_pred, dim=1, keepdim=True)
+                mask_pred_central = mask_pred - mask_pred_m1
+                mask_pred_m4 = torch.mean(mask_pred_central ** 2. * mask_pred_central ** 2, dim=1, keepdim=True)
+                mask_pred_kur = mask_pred_m4 / (mask_pred_m2 ** 2.) - 3.
+                if 'kurtosis' in self.mask_loss_type:
+                    mask_loss = F.mse_loss(
+                        mask_pred_kur,
+                        code_targets_kur
+                    )
+                    mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
+                    mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                    total_mask_loss += mask_loss * self.code_kur_weight
+                if 'variance' in self.mask_loss_type:
+                    mask_loss = F.mse_loss(
+                        mask_pred_m2,
+                        code_targets_var
+                    )
+                    mask_loss = mask_loss.sum(1) * ctrness_targets * self.num_codes
+                    mask_loss = mask_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
+                    total_mask_loss += mask_loss * self.code_var_weight
         losses = {
             "loss_DTInst_cls": class_loss,
             "loss_DTInst_loc": reg_loss,
             "loss_DTInst_ctr": ctrness_loss,
-            "loss_DTInst_mask": total_mask_loss * 0.5
+            "loss_DTInst_mask": total_mask_loss
         }
         return losses, {}
 

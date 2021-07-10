@@ -4,7 +4,8 @@ import torch.nn as nn
 import cv2
 from .SparseDTMEncoding import fast_ista, \
     prepare_distance_transform_from_mask_with_weights, \
-    prepare_reciprocal_DTM_from_mask, prepare_complement_DTM_from_mask
+    prepare_reciprocal_DTM_from_mask, prepare_complement_DTM_from_mask, \
+    prepare_distance_transform_from_mask
 
 
 @torch.no_grad()
@@ -27,8 +28,8 @@ class DistanceTransformEncoding(nn.Module):
         self.dictionary = nn.Parameter(torch.zeros(self.num_codes, self.mask_size ** 2), requires_grad=False)
         self.shape_mean = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
         self.shape_std = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
-        self.if_whiten = cfg.MODEL.SMInst.WHITEN
-        self.offset = cfg.MODEL.SMInst.MASK_LEVEL_SET_OFFSET
+        self.if_whiten = cfg.MODEL.DTInst.WHITEN
+        self.offset = cfg.MODEL.DTInst.MASK_LEVEL_SET_OFFSET
 
         if cfg.MODEL.DTInst.DIST_TYPE == 'L2':
             self.dist_type = cv2.DIST_L2
@@ -61,7 +62,8 @@ class DistanceTransformEncoding(nn.Module):
         #                                                                               bg_weighting=self.bg_weighting,
         #                                                                               mask_bias=self.mask_bias)
         # X_t = prepare_complement_DTM_from_mask(X, self.mask_size, dist_type=self.dist_type)
-        X_t = prepare_reciprocal_DTM_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        # X_t = prepare_reciprocal_DTM_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        X_t = prepare_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
 
         if self.if_whiten:
             Centered_X = (X_t - self.shape_mean) / self.shape_std
@@ -69,9 +71,13 @@ class DistanceTransformEncoding(nn.Module):
             Centered_X = X_t - self.shape_mean
 
         X_transformed = fast_ista(Centered_X, self.dictionary, lmbda=self.sparse_alpha, max_iter=self.max_iter)
+        X_m1 = torch.mean(X_transformed, dim=1, keepdim=True)
+        X_m2 = torch.var(X_transformed, dim=1, keepdim=True)
+        X_central = X_transformed - X_m1
+        X_m4 = torch.mean((X_central ** 2.) * (X_central ** 2.), dim=1, keepdim=True)
+        X_kur = X_m4 / (X_m2 ** 2.) - 3.
 
-        # return X_transformed, Centered_X, weight_maps, hd_maps
-        return X_transformed
+        return X_transformed, X_m2, X_kur
 
     def decoder(self, X, is_train=False):
         """

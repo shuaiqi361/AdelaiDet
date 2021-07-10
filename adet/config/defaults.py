@@ -413,6 +413,8 @@ _C.MODEL.DTInst.MASK_SPARSE_ALPHA = 0.1
 _C.MODEL.DTInst.MASK_SPARSE_WEIGHT = 0.0
 _C.MODEL.DTInst.MASK_LOSS_WEIGHT = 1.0
 _C.MODEL.DTInst.SPARSITY_LOSS_TYPE = 'L1'
+_C.MODEL.DTInst.CODE_KUR_WEIGHT = 0.0
+_C.MODEL.DTInst.CODE_VAR_WEIGHT = 0.0
 
 # The dim for sparse shape encoding
 _C.MODEL.DTInst.NUM_VERTEX = 180
@@ -427,6 +429,7 @@ _C.MODEL.DTInst.FLAG_PARAMETERS = False
 # The loss for mask branch, can be mse now.
 _C.MODEL.DTInst.MASK_LOSS_TYPE = ["mse", "cosine", "kl_softmax", "mask_mse", "hd"]
 _C.MODEL.DTInst.SHAPE_LOSS_TYPE = "piou"
+_C.MODEL.DTInst.MASK_LEVEL_SET_OFFSET = 0.9
 
 # Whether to use gcn in mask prediction.
 # Large Kernel Matters -- https://arxiv.org/abs/1703.02719

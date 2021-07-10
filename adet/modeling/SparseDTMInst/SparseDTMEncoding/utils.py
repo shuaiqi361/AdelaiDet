@@ -189,3 +189,33 @@ def prepare_reciprocal_DTM_from_mask(masks, mask_size, kernel=3, dist_type=cv2.D
     DTMs = torch.from_numpy(DTMs).to(torch.float32).to(device)
 
     return DTMs
+
+
+def prepare_distance_transform_from_mask(masks, mask_size, kernel=3, dist_type=cv2.DIST_L2):
+    """
+    Given a set of masks as torch tensor, convert to numpy array, find distance transform maps from them,
+    and convert DTMs back to torch tensor, a weight map with 1 - DTM will be returned(emphasizing boundary and thin parts)
+    :param dist_type: used for distance transform
+    :param kernel: kernel size for distance transforms
+    :param masks: input masks for instance segmentation, shape: (N, mask_size, mask_size)
+    :param mask_size: input mask size
+    :return: a set of distance transform maps, and a weight map in torch tensor, with the same shape as input masks
+    """
+    assert mask_size * mask_size == masks.shape[1]
+    device = masks.device
+    masks = masks.view(masks.shape[0], mask_size, mask_size).cpu().numpy()
+    masks = masks.astype(np.uint8)
+    DTMs = []
+    for m in masks:
+        dist_m = cv2.distanceTransform(m, distanceType=dist_type, maskSize=kernel)
+        dist_peak = np.max(dist_m)
+        dist_m = dist_m / (dist_peak + 1e-5)  # basic dtms in (0, 1)
+
+        DTMs.append(dist_map.reshape((1, -1)))
+
+    DTMs = np.concatenate(DTMs, axis=0)
+    DTMs = torch.from_numpy(DTMs).to(torch.float32).to(device)
+
+    return DTMs
+
+
