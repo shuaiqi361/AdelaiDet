@@ -78,6 +78,7 @@ class DistanceTransformEncoding(nn.Module):
         X_kur = X_m4 / (X_m2 ** 2.) - 3.
 
         return X_transformed, X_m2, X_kur
+        # return X_transformed
 
     def decoder(self, X, is_train=False):
         """
