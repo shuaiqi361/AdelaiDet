@@ -212,7 +212,6 @@ def prepare_distance_transform_from_mask(masks, mask_size, kernel=3, dist_type=c
         dist_m = dist_m / (dist_peak + 1e-5)  # basic dtms in (0, 1)
 
         dist_map = np.where(dist_m > 0, dist_m, -1).astype(np.float32)
-
         DTMs.append(dist_map.reshape((1, -1)))
 
     DTMs = np.concatenate(DTMs, axis=0)
