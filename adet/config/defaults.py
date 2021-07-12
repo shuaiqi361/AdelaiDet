@@ -404,6 +404,7 @@ _C.MODEL.DTInst.SIGMOID = True
 _C.MODEL.DTInst.NUM_MASK_CONVS = 4
 
 # The dim of mask before/after mask encoding.
+_C.MODEL.DTInst.DTM_TYPE = 'standard'
 _C.MODEL.DTInst.MASK_SIZE = 28
 _C.MODEL.DTInst.FOREGROUND_WEIGHTING = 1.0
 _C.MODEL.DTInst.BACKGROUND_WEIGHTING = 1.0
@@ -415,6 +416,7 @@ _C.MODEL.DTInst.MASK_LOSS_WEIGHT = 1.0
 _C.MODEL.DTInst.SPARSITY_LOSS_TYPE = 'L1'
 _C.MODEL.DTInst.CODE_KUR_WEIGHT = 0.0
 _C.MODEL.DTInst.CODE_VAR_WEIGHT = 0.0
+_C.MODEL.DTInst.IF_CODE_TRANSFORM = False
 
 # The dim for sparse shape encoding
 _C.MODEL.DTInst.NUM_VERTEX = 180
@@ -422,8 +424,7 @@ _C.MODEL.DTInst.POLYGON_SPARSE_ALPHA = 0.30
 _C.MODEL.DTInst.MAX_ISTA_ITER = 80
 _C.MODEL.DTInst.DIST_TYPE = "L2"
 # The default path for parameters of mask encoding.
-_C.MODEL.DTInst.PATH_DICTIONARY = "datasets/coco/components/" \
-                                   "coco_2017_train_class_agnosticTrue_whitenTrue_sigmoidTrue_60.npz"
+_C.MODEL.DTInst.PATH_DICTIONARY = "../../adet/modeling/SparseDTMInst/dictionary"
 # An indicator for encoding parameters loading during training.
 _C.MODEL.DTInst.FLAG_PARAMETERS = False
 # The loss for mask branch, can be mse now.

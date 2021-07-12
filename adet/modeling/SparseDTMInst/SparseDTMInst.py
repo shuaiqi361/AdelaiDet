@@ -1,4 +1,5 @@
 import math
+import os.path
 from typing import List, Dict
 import numpy as np
 import torch
@@ -52,6 +53,18 @@ class DTInst(nn.Module):
         self.post_nms_topk_test = cfg.MODEL.DTInst.POST_NMS_TOPK_TEST
         self.thresh_with_ctr = cfg.MODEL.DTInst.THRESH_WITH_CTR
         self.mask_size = cfg.MODEL.DTInst.MASK_SIZE
+        self.num_codes = cfg.MODEL.DTInst.NUM_CODE
+        self.sparse_alpha = cfg.MODEL.DTInst.MASK_SPARSE_ALPHA
+
+        self.dtm_type = cfg.MODEL.DTInst.DTM_TYPE
+        if self.dtm_type == 'standard':
+            self.dict_name = 'Centered_DTM_basis_m{}_n{}_a{:.2f}.npz'.format(self.mask_size, self.num_codes, self.sparse_alpha)
+        elif self.dtm_type == 'reciprocal':
+            self.dict_name = 'Centered_reciprocal_DTM_basis_m{}_n{}_a{:.2f}.npz'.format(self.mask_size, self.num_codes, self.sparse_alpha)
+        elif self.dtm_type == 'complement':
+            self.dict_name = 'Centered_complement_DTM_basis_m{}_n{}_a{:.2f}.npz'.format(self.mask_size, self.num_codes, self.sparse_alpha)
+        else:
+            raise NotImplementedError
 
         # fmt: on
         self.iou_loss = IOULoss(cfg.MODEL.DTInst.LOC_LOSS_TYPE)
@@ -88,6 +101,8 @@ class DTInst(nn.Module):
             if not self.flag_parameters:
                 # encoding parameters.
                 components_path = self.cfg.MODEL.DTInst.PATH_DICTIONARY
+                components_path = os.path.join(components_path, self.dict_name)
+
                 parameters = np.load(components_path)
                 learned_dict = parameters['shape_basis']
                 shape_mean = parameters['shape_mean']

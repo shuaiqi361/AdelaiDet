@@ -29,7 +29,18 @@ class DistanceTransformEncoding(nn.Module):
         self.shape_mean = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
         self.shape_std = nn.Parameter(torch.zeros(1, self.mask_size ** 2), requires_grad=False)
         self.if_whiten = cfg.MODEL.DTInst.WHITEN
-        self.offset = cfg.MODEL.DTInst.MASK_LEVEL_SET_OFFSET
+        # self.offset = cfg.MODEL.DTInst.MASK_LEVEL_SET_OFFSET
+        self.dtm_type = cfg.MODEL.DTInst.DTM_TYPE
+        if self.dtm_type == 'standard':
+            self.offset = 0.9
+        elif self.dtm_type == 'reciprocal':
+            self.offset = 0.6
+        elif self.dtm_type == 'complement':
+            self.offset = 0.55
+        else:
+            raise NotImplementedError
+
+        self.if_transform = cfg.MODEL.DTInst.IF_CODE_TRANSFORM
 
         if cfg.MODEL.DTInst.DIST_TYPE == 'L2':
             self.dist_type = cv2.DIST_L2
@@ -63,7 +74,15 @@ class DistanceTransformEncoding(nn.Module):
         #                                                                               mask_bias=self.mask_bias)
         # X_t = prepare_complement_DTM_from_mask(X, self.mask_size, dist_type=self.dist_type)
         # X_t = prepare_reciprocal_DTM_from_mask(X, self.mask_size, dist_type=self.dist_type)
-        X_t = prepare_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
+
+        if self.dtm_type == 'standard':
+            X_t = prepare_distance_transform_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        elif self.dtm_type == 'reciprocal':
+            X_t = prepare_reciprocal_DTM_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        elif self.dtm_type == 'complement':
+            X_t = prepare_complement_DTM_from_mask(X, self.mask_size, dist_type=self.dist_type)
+        else:
+            raise NotImplementedError
 
         if self.if_whiten:
             Centered_X = (X_t - self.shape_mean) / self.shape_std
@@ -71,6 +90,10 @@ class DistanceTransformEncoding(nn.Module):
             Centered_X = X_t - self.shape_mean
 
         X_transformed = fast_ista(Centered_X, self.dictionary, lmbda=self.sparse_alpha, max_iter=self.max_iter)
+
+        if self.if_transform:
+            X_transformed = X_transformed ** 1/3.
+
         X_m1 = torch.mean(X_transformed, dim=1, keepdim=True)
         X_m2 = torch.var(X_transformed, dim=1, keepdim=True) + 1e-4
         X_central = X_transformed - X_m1
@@ -96,6 +119,9 @@ class DistanceTransformEncoding(nn.Module):
         """
         assert X.shape[1] == self.num_codes, print("The dim of transformed data "
                                                    "should be equal to the supposed dim.")
+
+        if self.if_transform:
+            X_transformed = X_transformed ** 3.
 
         if self.if_whiten:
             X_transformed = torch.matmul(X, self.dictionary) * self.shape_std + self.shape_mean
