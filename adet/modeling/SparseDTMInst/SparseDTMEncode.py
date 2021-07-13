@@ -121,7 +121,7 @@ class DistanceTransformEncoding(nn.Module):
                                                    "should be equal to the supposed dim.")
 
         if self.if_transform:
-            X_transformed = X_transformed ** 3.
+            X = X ** 3.
 
         if self.if_whiten:
             X_transformed = torch.matmul(X, self.dictionary) * self.shape_std + self.shape_mean
