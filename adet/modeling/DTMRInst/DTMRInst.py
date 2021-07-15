@@ -289,23 +289,23 @@ class DTMRInstHead(nn.Module):
         #     nn.Sigmoid(),
         #  )
 
-        # self.residual = nn.Sequential(
-        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
-        #     nn.Sigmoid(),
-        # )
-
         self.residual = nn.Sequential(
-            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
             nn.Sigmoid(),
         )
+
+        # self.residual = nn.Sequential(
+        #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, in_channels * 2, kernel_size=1, stride=1, padding=0),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels * 2, self.mask_size ** 2, kernel_size=1, stride=1, padding=0),
+        #     nn.Sigmoid(),
+        # )
 
         # self.residual = nn.Sequential(
         #     nn.Conv2d(self.mask_size ** 2 + in_channels * 2, self.mask_size ** 2, kernel_size=3, stride=1, padding=1),
@@ -318,12 +318,19 @@ class DTMRInstHead(nn.Module):
         #     nn.Sigmoid(),
         # )
 
+        # self.mask_fusion = nn.Sequential(
+        #     nn.Conv2d(in_channels * 3, in_channels, kernel_size=3, stride=1, padding=1),
+        #     nn.GroupNorm(32, in_channels),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+        #     nn.GroupNorm(32, in_channels),
+        #     nn.ReLU()
+        # )
+
         self.mask_fusion = nn.Sequential(
             nn.Conv2d(in_channels * 3, in_channels, kernel_size=3, stride=1, padding=1),
-            nn.GroupNorm(32, in_channels),
             nn.ReLU(),
             nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
-            nn.GroupNorm(32, in_channels),
             nn.ReLU()
         )
 

@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 from scipy.stats import kurtosis
 from MaskLoader import MaskLoader
+from CityscapesMaskLoader import CityscalesMaskLoader
 from utils import (
     IOUMetric,
     fast_ista,
@@ -19,20 +20,27 @@ from utils import (
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluation for Sparse Mask Encoding with DTMs.')
-    parser.add_argument('--data_root', default='/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17',
+    # parser.add_argument('--data_root', default='/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17',
+    #                     type=str)
+    parser.add_argument('--data_root', default='/media/keyi/Data/Research/traffic/data/cityscapes',
                         type=str)
-    parser.add_argument('--dataset', default='coco_2017_val', type=str)
+    # parser.add_argument('--dataset', default='coco_2017_val', type=str)
+    parser.add_argument('--dataset', default='val', type=str)
     # parser.add_argument('--dictionary', default='/media/keyi/Data/Research/course_project/AdvancedCV_2020/data/COCO17/'
     #                                             'sparse_shape_dict/mask_fromDTM_minusone_basis_m28_n256_a0.30.npy',
     #                     type=str)
-    parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling'
-                                                '/SparseDTMInst/'
-                                                'dictionary/Centered_reciprocal_DTM_basis_m28_n128_a0.30.npz',
+    parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling/'
+                                                'SparseDTMInst/dictionary/Cityscapes_standard_DTM_basis_m28_n128_a0.10.npz',
                         type=str)
+    # parser.add_argument('--dictionary', default='/media/keyi/Data/Research/traffic/detection/AdelaiDet/adet/modeling'
+    #                                             '/SparseDTMInst/'
+    #                                             'dictionary/Centered_reciprocal_DTM_basis_m28_n128_a0.30.npz',
+    #                     type=str)
+
     # mask encoding params.
     parser.add_argument('--mask_size', default=28, type=int)
     parser.add_argument('--n_codes', default=128, type=int)
-    parser.add_argument('--sparse_alpha', default=0.30, type=float)
+    parser.add_argument('--sparse_alpha', default=0.10, type=float)
     parser.add_argument('--batch-size', default=1000, type=int)
     parser.add_argument('--top-code', default=60, type=int)
     parser.add_argument('--if-whiten', default=False, type=bool)
@@ -62,7 +70,8 @@ if __name__ == "__main__":
     shape_std = torch.from_numpy(shape_std).to(torch.float32)
 
     # build data loader.
-    mask_data = MaskLoader(root=dataset_root, dataset=args.dataset, size=mask_size)
+    # mask_data = MaskLoader(root=dataset_root, dataset=args.dataset, size=mask_size)
+    mask_data = CityscalesMaskLoader(root=dataset_root, split=args.dataset, size=mask_size)
     mask_loader = DataLoader(mask_data, batch_size=args.batch_size, shuffle=False, num_workers=4, drop_last=False)
     size_data = len(mask_loader)
     sparsity_counts = []
@@ -101,7 +110,7 @@ if __name__ == "__main__":
         kurtosis_counts.append(dtms_codes.numpy())
 
         # eva.
-        dtms_rc = np.where(dtms_rc + 0.6 >= 0.5, 1, 0)
+        dtms_rc = np.where(dtms_rc + 0.6 >= 0.5, 1, 0)  # 0.6 for cityscapes masks, 0.9 for coco masks
         IoUevaluate.add_batch(dtms_rc, masks.numpy())
 
     _, _, _, mean_iu, _ = IoUevaluate.evaluate()

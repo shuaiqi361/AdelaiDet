@@ -72,6 +72,9 @@ class MaskLoader(data.Dataset):
         bbox = np.array([ann["bbox"]])  # xmin, ymin, w, h
         bbox = BoxMode.convert(bbox, BoxMode.XYWH_ABS, BoxMode.XYXY_ABS)  # x1y1x2y2
         bbox = Boxes(bbox)
+        # print(bbox)
+        # print(ann["segmentation"])
+        # exit()
 
         # mask transform.
         mask = PolygonMasks([ann["segmentation"]])
