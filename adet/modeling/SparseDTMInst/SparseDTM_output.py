@@ -529,13 +529,13 @@ class DTInstOutputs(object):
                         mask_loss = mask_loss * self.mask_loss_weight + \
                                     sparsity_loss * self.mask_sparse_weight
                     elif self.sparsity_loss_type == 'weighted_L1':
-                        w_ = (torch.abs(code_targets) < 1e-3) * 1.  # inactive codes, put L1 regularization on them
+                        w_ = (torch.abs(code_targets) < 1e-2) * 1.  # inactive codes, put L1 regularization on them
                         sparsity_loss = torch.sum(torch.abs(mask_pred) * w_, 1)* ctrness_targets
                         sparsity_loss = sparsity_loss.sum() / torch.sum(w_) / max(ctrness_norm * self.num_codes, 1.0)
                         mask_loss = mask_loss * self.mask_loss_weight + \
                                     sparsity_loss * self.mask_sparse_weight
                     elif self.sparsity_loss_type == 'weighted_L2':
-                        w_ = (torch.abs(code_targets) < 1e-3) * 1.  # inactive codes, put L2 regularization on them
+                        w_ = (torch.abs(code_targets) < 1e-2) * 1.  # inactive codes, put L2 regularization on them
                         sparsity_loss = torch.sum(mask_pred ** 2. * w_, 1) / torch.sum(w_, 1) \
                                         * ctrness_targets * self.num_codes
                         sparsity_loss = sparsity_loss.sum() / max(ctrness_norm * self.num_codes, 1.0)
@@ -577,7 +577,8 @@ class DTInstOutputs(object):
                 if 'kurtosis' in self.mask_loss_type:
                     mask_pred_kur = mask_pred_m4 / (mask_pred_m2 ** 2.) - 3.
                     # mask_loss = F.mse_loss(
-                    mask_loss = F.l1_loss(
+                    # mask_loss = F.l1_loss(
+                    mask_loss = F.smooth_l1_loss(
                         mask_pred_kur,
                         code_targets_kur,
                         reduction='none'
@@ -587,8 +588,10 @@ class DTInstOutputs(object):
                     total_mask_loss += mask_loss * self.code_kur_weight
                 if 'variance' in self.mask_loss_type:
                     mask_pred_m2 = torch.mean(mask_pred_central ** 2., dim=1, keepdim=True) + 1e-4
+                    mask_pred_m2 = torch.sqrt(mask_pred_m2)
                     # mask_loss = F.mse_loss(
-                    mask_loss = F.l1_loss(
+                    # mask_loss = F.l1_loss(
+                    mask_loss = F.smooth_l1_loss(
                         mask_pred_m2,
                         code_targets_var,
                         reduction='none'

@@ -96,11 +96,12 @@ class DistanceTransformEncoding(nn.Module):
 
         X_m1 = torch.mean(X_transformed, dim=1, keepdim=True)
         X_m2 = torch.var(X_transformed, dim=1, keepdim=True) + 1e-4
+        X_m2_sqrt = X_m2 ** 0.5
         X_central = X_transformed - X_m1
         X_m4 = torch.mean((X_central ** 2.) * (X_central ** 2.), dim=1, keepdim=True)
         X_kur = X_m4 / (X_m2 ** 2.) - 3.
 
-        return X_transformed, X_m2, X_kur
+        return X_transformed, X_m2_sqrt, X_kur
         # return X_transformed
 
     def decoder(self, X, is_train=False):
