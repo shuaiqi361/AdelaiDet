@@ -116,46 +116,46 @@ if __name__ == "__main__":
         assert min(all_contiguous_ids) == 0 and max(all_contiguous_ids) == num_classes - 1
         reverse_id_mapping = {v: k for k, v in dataset_id_to_contiguous_id.items()}
 
-    for img_id in imgIds:
-        img = coco.loadImgs(img_id)[0]
-        image_path = '%s/%s/%s' % (args.coco_path, args.data_type, img['file_name'])
-        w_img = int(img['width'])
-        h_img = int(img['height'])
-        if w_img < 1 or h_img < 1:
-            continue
-
-        # use PIL, to be consistent with evaluation
-        img = read_image(image_path, format="BGR")
-        start_time = time.time()
-        # predictions, _ = demo.run_on_image(img)
-        predictions = predictor(img)
-        logger.info(
-            "{}: detected {} instances in {:.2f}s".format(
-                image_path, len(predictions["instances"]), time.time() - start_time
-            )
-        )
-
-        if "instances" in predictions:
-            instances = predictions["instances"].to(_cpu_device)
-            predictions["instances"] = instances_to_coco_json(instances, img_id)
-        else:
-            raise NotImplementedError
-
-        for result in predictions["instances"]:
-            category_id = result["category_id"]
-            # assert category_id < num_classes, (
-            #     f"A prediction has class={category_id}, "
-            #     f"but the dataset only has {num_classes} classes and "
-            #     f"predicted class id should be in [0, {num_classes - 1}]."
-            # )
-            result["category_id"] = reverse_id_mapping[category_id]
-            seg_results.append(result)
-
-    if not os.path.exists('{}/results'.format(args.result_dir)):
-        os.mkdir('{}/results'.format(args.result_dir))
-
-    with open('{}/results/{}_seg_results.json'.format(args.result_dir, args.data_type), 'w') as f_det:
-        json.dump(seg_results, f_det)
+    # for img_id in imgIds:
+    #     img = coco.loadImgs(img_id)[0]
+    #     image_path = '%s/%s/%s' % (args.coco_path, args.data_type, img['file_name'])
+    #     w_img = int(img['width'])
+    #     h_img = int(img['height'])
+    #     if w_img < 1 or h_img < 1:
+    #         continue
+    #
+    #     # use PIL, to be consistent with evaluation
+    #     img = read_image(image_path, format="BGR")
+    #     start_time = time.time()
+    #     # predictions, _ = demo.run_on_image(img)
+    #     predictions = predictor(img)
+    #     logger.info(
+    #         "{}: detected {} instances in {:.2f}s".format(
+    #             image_path, len(predictions["instances"]), time.time() - start_time
+    #         )
+    #     )
+    #
+    #     if "instances" in predictions:
+    #         instances = predictions["instances"].to(_cpu_device)
+    #         predictions["instances"] = instances_to_coco_json(instances, img_id)
+    #     else:
+    #         raise NotImplementedError
+    #
+    #     for result in predictions["instances"]:
+    #         category_id = result["category_id"]
+    #         # assert category_id < num_classes, (
+    #         #     f"A prediction has class={category_id}, "
+    #         #     f"but the dataset only has {num_classes} classes and "
+    #         #     f"predicted class id should be in [0, {num_classes - 1}]."
+    #         # )
+    #         result["category_id"] = reverse_id_mapping[category_id]
+    #         seg_results.append(result)
+    #
+    # if not os.path.exists('{}/results'.format(args.result_dir)):
+    #     os.mkdir('{}/results'.format(args.result_dir))
+    #
+    # with open('{}/results/{}_seg_results.json'.format(args.result_dir, args.data_type), 'w') as f_det:
+    #     json.dump(seg_results, f_det)
 
     if 'test' not in args.data_type:
         if not os.path.exists('{}/results/plot'.format(args.result_dir)):

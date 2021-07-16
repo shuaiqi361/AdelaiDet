@@ -149,9 +149,6 @@ if __name__ == "__main__":
         else:
             raise NotImplementedError
 
-        fgModel = np.zeros((1, MODEL_MEM_ALLOT), dtype="float")
-        bgModel = np.zeros((1, MODEL_MEM_ALLOT), dtype="float")
-
         for result in predictions["instances"]:
             category_id = result["category_id"]
             # assert category_id < num_classes, (
@@ -162,17 +159,36 @@ if __name__ == "__main__":
             result["category_id"] = reverse_id_mapping[category_id]
 
             # apply grabcut algorithm to refine the masks
-            m = cocomask.decode(result["segmentation"]).astype(np.uint8)
-            bbox = result["bbox"]
-            bbox = (bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3])
-            m_cut, _, _ = cv2.grabCut(cv_img, m, bbox, bgModel, fgModel, iterCount=5, mode=cv2.GC_INIT_WITH_MASK)
+            fgModel = np.zeros((1, MODEL_MEM_ALLOT), dtype="float")
+            bgModel = np.zeros((1, MODEL_MEM_ALLOT), dtype="float")
+
+            # m = cocomask.decode(result["segmentation"])
+            # m = m.astype(np.uint8)
+            # m = np.zeros(cv_img.shape[:2], dtype="uint8")
+            x1, y1, w, h = result["bbox"]
+            x1, y1, w, h = int(x1), int(y1), int(w), int(h)
+            bbox = (x1, y1, x1 + w, y1 + h)
+            m = np.zeros(cv_img.shape[:2], dtype="uint8")
+            m = cv2.rectangle(m, (x1, y1), (x1 + w, y1 + h), color=1, thickness=-1)
+
+            cv2.rectangle(m, (bbox[0] + (bbox[2] - bbox[0]) // 4, bbox[1] + (bbox[3] - bbox[1]) // 4),
+                          (bbox[0] + (bbox[2] - bbox[0]) // 4 * 3, bbox[1] + (bbox[3] - bbox[1]) // 4 * 3), color=2, thickness=-1)
+            m_ = np.where(m > 0, m + 1, 0)
+            # # print(m.shape, m.dtype)
+            # # print(cv_img.shape, cv_img.dtype)
+            #
+            cv2.grabCut(cv_img, m_, (x1, y1, w, h), bgModel, fgModel, iterCount=3, mode=cv2.GC_INIT_WITH_MASK)
 
             # for visualization purpose
-            cat_image = np.concatenate([m, m_cut], axis=1)
-            cv2.imshow('mask vs. cut', cat_image)
-            cv2.imshow('image', cv_img)
-            if cv2.waitKey() & 0xFF == ord('q'):
-                break
+            m_cut = np.where(((m_ == 2) | (m_ == 0)), 0, 1).astype(np.uint8)
+            # cat_image = np.concatenate([m // 2 * 255, m_cut * 255], axis=1)
+            # cv2.imshow('mask vs. cut', cat_image)
+            #
+            # cv_img_mask = cv_img * m_cut[:, :, np.newaxis]
+            # # cv_img_mask = cv_img * m[:, :, np.newaxis]
+            # cv2.imshow('image', cv_img_mask)
+            # if cv2.waitKey() & 0xFF == ord('q'):
+            #     exit()
 
             result['segmentation'] = encode_mask(m_cut)
 
@@ -181,18 +197,17 @@ if __name__ == "__main__":
     if not os.path.exists('{}/results'.format(args.result_dir)):
         os.mkdir('{}/results'.format(args.result_dir))
 
-    with open('{}/results/{}_seg_results.json'.format(args.result_dir, args.data_type), 'w') as f_det:
+    with open('{}/results/{}_seg_grabcut_results.json'.format(args.result_dir, args.data_type), 'w') as f_det:
         json.dump(seg_results, f_det)
 
     if 'test' not in args.data_type:
-        if not os.path.exists('{}/results/plot'.format(args.result_dir)):
-            os.mkdir('{}/results/plot'.format(args.result_dir))
+        if not os.path.exists('{}/results/cut'.format(args.result_dir)):
+            os.mkdir('{}/results/cut'.format(args.result_dir))
         print('---------------------------------------------------------------------------------')
         print('Running COCO segmentation val17 evaluation ...')
-        coco_pred = coco.loadRes('{}/results/{}_seg_results.json'.format(args.result_dir, args.data_type))
+        coco_pred = coco.loadRes('{}/results/{}_seg_grabcut_results.json'.format(args.result_dir, args.data_type))
         coco_eval = COCOeval(coco, coco_pred, 'segm')
         coco_eval.evaluate()
         coco_eval.accumulate()
         coco_eval.summarize()
-        coco_eval.analyze(save_to_dir='{}/results/plot'.format(args.result_dir))
 

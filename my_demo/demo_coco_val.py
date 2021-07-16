@@ -121,7 +121,7 @@ if __name__ == "__main__":
         dataset_name = 'coco_2017_train'
 
     coco = COCO(annotation_file)
-    imgIds = coco.getImgIds()
+    # imgIds = coco.getImgIds()
     # random.shuffle(imgIds)
     # imgIds = np.sort(coco.getImgIds())
     # imgIds = coco.getImgIds()
@@ -129,7 +129,13 @@ if __name__ == "__main__":
     # imgIds = [480985, 25560, 314294, 360661, 430961, 551215, 301135, 459153, 321333,
     #           190756, 110638, 173033, 255664, 369081, 263969, 90284, 33707, 509735,
     #           194471, 425702, 525322, 357081, 60347, 60102, 210708, 110638, 526706,
-    #           343934]
+    #           343934]  # cross compare with other methods
+    # imgIds = [447169, 380711, 380203, 119233, 533493, 61584, 118209, 343076,
+    #           358923, 248810, 29187, 235241, 346638, 210708, 388258, 480842]  # worst condinst cases
+    # imgIds = [281754, 535156, 537672, 199551, 437205, 248752, 455301, 78843,
+    #           201072, 44068, 327601, 203317, 407083, 546475, 391290, 183675]  # worst blendmask cases
+    imgIds = [368212, 267940, 338325, 110359, 281693, 297147, 498807, 324258,
+              548339, 199236, 253695]  # ours worst cases
     pred_codes = []
     id_cnt = 0
 
@@ -149,11 +155,11 @@ if __name__ == "__main__":
         predictions, visualized_output = demo.run_on_image(img)
         # print(predictions["instances"])
 
-        codes_ = predictions["instances"].pred_codes.cpu().numpy()
-        if len(codes_) == 0:
-            continue
-        pred_codes.append(codes_)
-
+        # codes_ = predictions["instances"].pred_codes.cpu().numpy()
+        # if len(codes_) == 0:
+        #     continue
+        # pred_codes.append(codes_)
+        #
         # codes_ = predictions["instances"].pred_codes.cpu().numpy()
         # pred_codes.append(codes_)
 
@@ -222,38 +228,44 @@ if __name__ == "__main__":
                 out_filename = args.output
             visualized_output.save(out_filename)
         else:
+            # pass
             # cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
             # print('Displaying image with id: ', img_id)
-            # continue
-            # cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
-
-            gt_dst_img = cv2.addWeighted(gt_image, 0.4, gt_blend_mask, 0.6, 0)
-            gt_dst_img[gt_blend_mask == 0] = gt_image[gt_blend_mask == 0]
-
-            cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
-
-            cv2.imshow('Pred vs. GT', cat_image)
-
-            if cv2.waitKey() & 0xFF == ord('q'):
-                break
-
-            # save_path = '/home/keyi/Documents/research/code/AdelaiDet/experiments/res50_meinst_001/images'
-            # id_cnt += 1
+            # # continue
+            # # cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
+            #
             # gt_dst_img = cv2.addWeighted(gt_image, 0.4, gt_blend_mask, 0.6, 0)
             # gt_dst_img[gt_blend_mask == 0] = gt_image[gt_blend_mask == 0]
             #
-            # gt_name = 'gt_{:02d}.png'.format(id_cnt)
-            # cv2.imwrite(os.path.join(save_path, gt_name), gt_dst_img)
+            # cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
             #
-            # dtm_name = 'dtmrinst_{:02d}.png'.format(id_cnt)
-            # # cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
+            # cv2.imshow('Pred vs. GT', cat_image)
             #
-            # cv2.imwrite(os.path.join(save_path, dtm_name), visualized_output.get_image()[:, :, ::-1])
+            # if cv2.waitKey() & 0xFF == ord('q'):
+            #     break
 
-    pred_codes = np.concatenate(pred_codes, axis=0)
-    sparsity_counts = np.sum(np.abs(pred_codes) > 1e-2)
-    num_obj, num_dim = pred_codes.shape
-    print('Overall sparsity: ', sparsity_counts * 1. / (num_obj * num_dim))
+            # save_path = '/home/keyi/Documents/research/code/AdelaiDet/experiments/CondInst_R_50_3x/results/demo'
+            save_path = '/home/keyi/Documents/research/code/AdelaiDet/experiments/3090_Res_50_DTMRInst_007/demo_n'
+            # save_path = '/home/keyi/Documents/research/code/AdelaiDet/experiments/BlendMask_R_50_3x/results/demo'
+            id_cnt += 1
+            gt_dst_img = cv2.addWeighted(gt_image, 0.4, gt_blend_mask, 0.6, 0)
+            gt_dst_img[gt_blend_mask == 0] = gt_image[gt_blend_mask == 0]
 
-    kur = np.sum(kurtosis(pred_codes, axis=1, fisher=True, bias=False)) / num_obj
-    print('Overall Kurtosis: ', kur)
+            gt_name = 'ours_gt_{:02d}.png'.format(id_cnt)
+            cv2.imwrite(os.path.join(save_path, gt_name), gt_dst_img)
+
+            dtm_name = 'blend_inst_{:02d}.png'.format(id_cnt)
+            # cat_image = np.concatenate([visualized_output.get_image()[:, :, ::-1], gt_dst_img], axis=1)
+
+            cv2.imwrite(os.path.join(save_path, dtm_name), visualized_output.get_image()[:, :, ::-1])
+
+    # pred_codes = np.concatenate(pred_codes, axis=0)
+    # sparsity_counts = np.sum(np.abs(pred_codes) > 1e-2)
+    # num_obj, num_dim = pred_codes.shape
+    # print('Overall sparsity: ', sparsity_counts * 1. / (num_obj * num_dim))
+    #
+    # kur = np.sum(kurtosis(pred_codes, axis=1, fisher=True, bias=False)) / num_obj
+    # print('Overall Kurtosis: ', kur)
+    #
+    # st_div = np.sum(np.std(pred_codes, axis=1)) / num_obj
+    # print('Overall Kurtosis: ', st_div)
